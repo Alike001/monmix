@@ -30,9 +30,13 @@ const preparation = await prepareNativeMarketSell(client, {
 });
 // Recently active public USDC holder discovered from Transfer logs. Used only for eth_call/read context.
 const buySimulationAccount = '0x7Db99F225Af7A1A21b7b6468Ed28F4bC60FbE937';
+const declaredMinimumBaseAtoms = (snapshot.params.minSize * 10n ** snapshot.params.baseAssetDecimals) / snapshot.params.sizePrecision;
+const minimumQuoteAtBestAskAtoms = (declaredMinimumBaseAtoms * snapshot.bestAskX18 * 10n ** snapshot.params.quoteAssetDecimals) /
+  (10n ** snapshot.params.baseAssetDecimals * 10n ** 18n);
 const buyPreparation = await prepareNativeMarketBuy(client, {
   account: buySimulationAccount,
-  quoteAmountAtoms: 5n * 10n ** 6n,
+  // Derive a comfortably above-floor probe from the current book; never pin an observed price.
+  quoteAmountAtoms: minimumQuoteAtBestAskAtoms * 2n + 1n,
   slippageBps: 50n,
 });
 
