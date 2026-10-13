@@ -56,4 +56,4 @@ Email is the simplest first delivery channel because it can be verified and revo
 - Public status/last-observation UI that never labels stale data current.
 - Security/privacy review and retention policy.
 
-Until every item is met, Strategy Desk must continue saying that it does not monitor the portfolio while closed.
+Until every item is met, MonMix must continue saying that it does not monitor the portfolio while closed.

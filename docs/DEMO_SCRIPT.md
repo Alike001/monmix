@@ -2,7 +2,7 @@
 
 ## 0:00–0:25 — promise
 
-"Choose how much MON you want to hold. The desk reads Kuru, values your wallet and explains whether to wait, block or review a protected buy or sell—without moving funds in this release."
+"MonMix is your crypto, your mix. Choose how much MON you want to hold; MonMix reads Kuru, values your wallet and explains whether to wait, block or review a protected buy or sell—without moving funds in this release."
 
 Show `/` and the live midpoint card.
 
@@ -24,4 +24,4 @@ Open `/activity` to show the honest browser-local state and residual-allowance c
 
 ## 2:55–3:00 — close
 
-"Strategy Desk turns portfolio drift into a protected Kuru action under the owner's control. A receipt-backed trade is a separately authorized next gate, not a hidden demo claim."
+"MonMix turns portfolio drift into a protected Kuru action under the owner's control. A receipt-backed trade is a separately authorized next gate, not a hidden demo claim."

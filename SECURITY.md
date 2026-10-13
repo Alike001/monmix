@@ -1,6 +1,6 @@
 # Security policy
 
-Monad Strategy Desk is pre-release financial software. Mainnet execution is disabled in public release builds, browser strategy limits are advisory, and no maintainer will ask for a private key or seed phrase.
+MonMix is pre-release financial software. Mainnet execution is disabled in public release builds, browser strategy limits are advisory, and no maintainer will ask for a private key or seed phrase.
 
 ## Reporting a vulnerability
 

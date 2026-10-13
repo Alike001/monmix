@@ -9,7 +9,7 @@
 - [x] CI workflow for production audit, tests, typecheck, lint, guarded build and browser accessibility.
 - [x] Public README badges, selected screenshots, security policy and judge quickstart.
 - [x] Production dependency audit has no known advisories after the Next.js 16.3.8 security update.
-- [ ] Owner confirms the destination GitHub organization/repository.
+- [x] Owner confirms the destination GitHub organization/repository: `Alike001/monmix`.
 - [ ] Configure branch protection and require the verification workflow.
 - [ ] Confirm repository visibility is public before submission.
 - [ ] Add final public URL, repository URL and demo-video URL to README/submission.
@@ -22,7 +22,8 @@
 - [x] No database, private key or paid service is required for the read-only release.
 - [x] `MONAD_RPC_URL` may be configured server-side; no secret is exposed with `NEXT_PUBLIC_`.
 - [x] `NEXT_PUBLIC_ENABLE_MAINNET_EXECUTION=false` is explicit in CI and `.env.example`; the public build refuses a true value.
-- [ ] Owner confirms Vercel project/team and GitHub integration.
+- [x] Owner confirms Vercel project name: `monmix`.
+- [ ] Owner confirms Vercel account/team and GitHub integration.
 - [ ] Configure production/preview environment variables with execution false.
 - [ ] Verify the Vercel dashboard shows `false` independently for Preview and Production before either build.
 - [ ] Deploy preview and run all six routes, API smoke checks, live read-only check and real-extension acceptance against the exact URL.

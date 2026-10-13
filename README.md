@@ -1,14 +1,21 @@
-# Monad Strategy Desk
+# MonMix
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-10120f.svg)](LICENSE)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16.3.8-10120f.svg)](apps/web/package.json)
 [![Mainnet execution](https://img.shields.io/badge/mainnet%20execution-disabled-d35245.svg)](docs/THREAT_MODEL.md)
+[![Verify](https://github.com/Alike001/monmix/actions/workflows/verify.yml/badge.svg)](https://github.com/Alike001/monmix/actions/workflows/verify.yml)
 
-Monad Strategy Desk is an owner-controlled spot portfolio strategy product for Monad. A user can inspect Kuru's live MON/USDC order book, connect an injected wallet, read real MON and USDC balances, choose a target allocation and advisory limits, receive a deterministic `WAIT`, `BLOCK`, or `REVIEW`, and prepare a protected Kuru adjustment in either direction.
+**Your crypto, your mix.**
+
+MonMix helps you keep your MON and USDC holdings aligned with your goals. Choose your target allocation, see when your portfolio drifts, and review protected trades through Kuru to rebalance—all while keeping control of your wallet.
+
+A user can inspect Kuru's live MON/USDC order book, connect an injected wallet, read real MON and USDC balances, choose a target allocation and advisory limits, receive a deterministic `WAIT`, `BLOCK`, or `REVIEW`, and prepare a protected Kuru adjustment in either direction.
 
 The user-confirmed native MON sell and exact-approval USDC-to-MON lifecycles are implemented but **disabled by default**. This work did not approve, sign, or broadcast a transaction. It has no backend signer, automation, private-key handling, or contract deployment. TypeScript policy limits bound a recommendation only; they are not independently enforced financial controls.
 
-![Monad Strategy Desk landing page](docs/screenshots/home-desktop.png)
+![MonMix landing page](docs/screenshots/home-desktop.png)
+
+Desktop and mobile captures for every public route are indexed in [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md).
 
 ## Thirty-second journey
 
@@ -88,4 +95,4 @@ OpenAI Codex was used for repository research, architecture, implementation, tes
 
 See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for raw read evidence, [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) for the release safety boundary, and [docs/JUDGE-QUICKSTART.md](docs/JUDGE-QUICKSTART.md) for the shortest review path.
 
-Publishing and deployment remain owner-controlled. See [docs/PUBLISHING-AND-DEPLOYMENT.md](docs/PUBLISHING-AND-DEPLOYMENT.md) for the exact GitHub and Vercel settings and commands; none have been run for this repository.
+The approved public repository is [Alike001/monmix](https://github.com/Alike001/monmix). Vercel deployment remains owner-controlled and has not been performed. See [docs/PUBLISHING-AND-DEPLOYMENT.md](docs/PUBLISHING-AND-DEPLOYMENT.md) for the exact project settings and remaining approval gate.

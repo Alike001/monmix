@@ -1,6 +1,6 @@
 # GitHub and Vercel publishing runbook
 
-This is a command reference, not authorization. Do not run remote creation, push, project linking or deployment commands until the owner confirms the exact GitHub repository and Vercel team/project.
+GitHub publication is authorized for `Alike001/monmix`. Vercel project linking and deployment remain a separate owner gate; this document prepares those commands without running them.
 
 ## Release identity
 
@@ -13,6 +13,7 @@ This is a command reference, not authorization. Do not run remote creation, push
 - Output: `apps/web/.next`.
 - Runtime: Vercel Node functions for `/api/*`; static output for product pages where Next.js permits it.
 - Vercel Root Directory: repository root (`.`), not `apps/web`. This keeps the root lockfile and both workspace packages available.
+- Vercel project name: `monmix`.
 
 ## Required environment configuration
 
@@ -21,6 +22,7 @@ Create these independently for **Preview** and **Production**:
 ```text
 NEXT_PUBLIC_ENABLE_MAINNET_EXECUTION=false
 MONAD_RPC_URL=<owner-selected Monad mainnet HTTPS RPC>
+NEXT_PUBLIC_SITE_URL=<final HTTPS production origin>
 ```
 
 `MONAD_RPC_URL` is server-only. It need not be secret if it is a public endpoint, but a credentialed endpoint must never use a `NEXT_PUBLIC_` name. Leave `NEXT_PUBLIC_MONAD_RPC_URL` unset unless the endpoint is intentionally public.
@@ -41,37 +43,38 @@ git log --oneline -5
 
 Expected: every command passes, the final status is empty, and the live command performs reads/simulations only.
 
-## Connect the owner-selected GitHub repository
+## Connect the approved GitHub repository
 
-After the owner supplies `OWNER/REPOSITORY` and confirms SSH or HTTPS authentication:
+The approved destination is `https://github.com/Alike001/monmix`. With `gh auth status` showing the active `Alike001` account, create the empty public repository without initializing files, then preserve and push the local history:
 
 ```bash
-git remote add origin git@github.com:OWNER/REPOSITORY.git
+gh repo create Alike001/monmix --public --description "MonMix — user-controlled MON/USDC portfolio strategy and protected Kuru trade preparation on Monad."
+git remote add origin https://github.com/Alike001/monmix.git
 git remote -v
 git ls-remote origin
 git push -u origin main
 ```
 
-If `origin` already exists, inspect it before using the explicitly approved replacement:
+If `origin` already exists, inspect it before changing anything. Never force-push or overwrite unexpected remote history:
 
 ```bash
 git remote get-url origin
-git remote set-url origin git@github.com:OWNER/REPOSITORY.git
+git remote set-url origin https://github.com/Alike001/monmix.git
 ```
 
 Then make the repository public, enable private vulnerability reporting, protect `main`, require pull requests and require the `verify` workflow. Replace the static release badges or add a CI badge only after the final repository path is known:
 
 ```text
-https://github.com/OWNER/REPOSITORY/actions/workflows/verify.yml/badge.svg
+https://github.com/Alike001/monmix/actions/workflows/verify.yml/badge.svg
 ```
 
 ## Link Vercel without deploying
 
-After the owner confirms the Vercel team and project:
+After the owner confirms the Vercel account/team destination:
 
 ```bash
 pnpm dlx vercel@latest login
-pnpm dlx vercel@latest link
+pnpm dlx vercel@latest link --project monmix
 ```
 
 During linking, choose the repository root and confirm the detected settings against the release identity above. `.vercel/` is ignored and must not be committed.
@@ -84,6 +87,7 @@ printf '%s' 'false' | pnpm dlx vercel@latest env add NEXT_PUBLIC_ENABLE_MAINNET_
 ```
 
 Add `MONAD_RPC_URL` through the Vercel dashboard or interactive CLI without placing a credential in shell history. Verify environment targets in the dashboard.
+Set `NEXT_PUBLIC_SITE_URL` to the final production HTTPS origin so canonical and social metadata resolve to the public deployment. It is not a secret.
 
 To validate Vercel's build locally without publishing:
 

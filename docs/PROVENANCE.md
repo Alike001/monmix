@@ -8,7 +8,7 @@ Milestone 1 moved the policy and tests into `packages/domain`, preserved behavio
 
 ## Milestone 1 authorship
 
-All application code, CSS, copy, adapters and tests in this repository were independently written for Monad Strategy Desk. No reference UI, branding, custom asset, source module, ABI file, or copyrighted copy was imported.
+All application code, CSS, copy, adapters and tests in this repository were independently written for MonMix (formerly developed under the working name Monad Strategy Desk). No reference UI, branding, custom asset, source module, ABI file, or copyrighted copy was imported.
 
 ## AI-tool disclosure
 

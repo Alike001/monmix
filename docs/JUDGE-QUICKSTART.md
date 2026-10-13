@@ -2,7 +2,9 @@
 
 ## Understand it in 30 seconds
 
-Monad Strategy Desk helps a wallet owner maintain a chosen MON/USDC allocation. It reads the live Kuru order book and wallet balances, explains whether to WAIT, BLOCK or REVIEW, and prepares a protected Kuru adjustment without taking custody or making an autonomous decision.
+**MonMix — Your crypto, your mix.**
+
+MonMix helps you keep your MON and USDC holdings aligned with your goals. Choose your target allocation, see when your portfolio drifts, and review protected trades through Kuru to rebalance—all while keeping control of your wallet.
 
 ## Review path
 
