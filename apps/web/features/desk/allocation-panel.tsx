@@ -121,11 +121,10 @@ export function AllocationPanel() {
         <div className="preference-actions"><button className="button small secondary" type="button" onClick={() => { saveStrategyPreferences(window.localStorage, { preset, target, trigger, perActionCap, dailyCap, minimumTrade, paused }); setSavedMessage('Saved in this browser.'); }}>Save strategy</button><span aria-live="polite">{savedMessage || 'Nothing is synced onchain or between devices.'}</span></div>
         </fieldset>
       </section>
-    </div><DecisionCard result={result} target={target} minimumTrade={minimumTrade} />
+    </div><DecisionCard result={result} target={target} minimumTrade={minimumTrade} /></div>
     {result.kind === 'decision' && result.decision.status === 'REVIEW' && result.review?.status === 'REVIEW' && wallet.address ? result.decision.side === 'SELL_BASE'
       ? <NativeSellPreflight key={`sell:${wallet.connectorUid}:${wallet.address}:${result.review.estimatedBaseAtoms}`} account={wallet.address} baseAmountAtoms={result.review.estimatedBaseAtoms} />
       : <NativeBuyPreflight key={`buy:${wallet.connectorUid}:${wallet.address}:${result.review.estimatedQuoteAtoms}`} account={wallet.address} quoteAmountAtoms={result.review.estimatedQuoteAtoms} /> : null}
-    </div>
   </div>;
 }
 

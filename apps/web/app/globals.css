@@ -289,7 +289,7 @@ button { cursor: pointer; }
 .review-metric { display: flex; justify-content: space-between; gap: 18px; padding-bottom: 10px; border-bottom: 1px solid var(--line); font-size: 13px; }
 .review-metric span { color: var(--muted); }
 .review-metric strong { font-family: ui-monospace, monospace; text-align: right; }
-.preflight { grid-column: 1 / -1; padding: clamp(22px, 3vw, 32px); border: 1px solid var(--line); border-radius: var(--radius); background: var(--night); color: #f7f5ed; box-shadow: var(--shadow); }
+.preflight { margin-top: 18px; padding: clamp(22px, 3vw, 32px); border: 1px solid var(--line); border-radius: var(--radius); background: var(--night); color: #f7f5ed; box-shadow: var(--shadow); }
 .preflight .eyebrow { color: #cbd2c8; }
 .preflight h3 { margin: 8px 0 0; max-width: 670px; font-size: clamp(24px, 3vw, 36px); letter-spacing: -.04em; }
 .preflight-head { display: flex; justify-content: space-between; gap: 24px; align-items: start; }

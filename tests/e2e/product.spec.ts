@@ -302,6 +302,98 @@ test('a verified empty Monad wallet is not described as an on-track allocation',
   await expect(page.getByText('Fund wallet to begin')).toBeVisible();
 });
 
+test('funded sell simulation stays clear of the sticky decision at every supported width', async ({ page }) => {
+  const account = '0x7Db99F225Af7A1A21b7b6468Ed28F4bC60FbE937';
+  const market = '0x065C9d28E428A0db40191a54d33d5b7c71a9C394';
+  const implementation = '0x5e3446c600524Be453bbCEFD46a9E4C9bE8899a0';
+  const usdc = '0x754704Bc059F8C67012fEd69BC8A327a5aafb603';
+  await page.route('**/api/market', (route) => route.fulfill({ json: { ok: true, snapshot: {
+    chainId: 143, marketAddress: market,
+    params: { pricePrecision: '100000000', sizePrecision: '10000000000', baseAssetAddress: '0x0000000000000000000000000000000000000000', baseAssetDecimals: '18', quoteAssetAddress: usdc, quoteAssetDecimals: '6', tickSize: '100', minSize: '2000000000000', maxSize: '2000000000000000000', takerFeeBps: '0', makerFeeBps: '0' },
+    book: { blockNumber: '123', bids: [{ priceRaw: '2400000', sizeRaw: '1000000000000000' }], asks: [{ priceRaw: '2410000', sizeRaw: '1000000000000000' }] },
+    bestBidX18: '24000000000000000', bestAskX18: '24100000000000000', midpointX18: '24050000000000000', observedAtSeconds: '1000', ageSeconds: '1', status: 'LIVE',
+  } } }));
+  await page.route('**/api/balances?**', (route) => route.fulfill({ json: { ok: true, mon: '219000000000000000000', usdc: '0' } }));
+  await page.route('**/api/preflight/sell', async (route) => {
+    const request = route.request().postDataJSON() as { baseAmountAtoms: string };
+    const baseAmountAtoms = BigInt(request.baseAmountAtoms);
+    const sizeRaw = baseAmountAtoms / 100000000n;
+    await route.fulfill({ json: { ok: true, preparation: {
+      chainId: 143, account, marketAddress: market, implementationAddress: implementation,
+      implementationCodeHash: `0x${'12'.repeat(32)}`, blockNumber: '123',
+      observedAtSeconds: Math.floor(Date.now() / 1000).toString(), expiresAtSeconds: (Math.floor(Date.now() / 1000) + 20).toString(),
+      baseAmountAtoms: baseAmountAtoms.toString(), sizeRaw: sizeRaw.toString(), expectedQuoteAtoms: '4835520', minimumQuoteAtoms: '4811342',
+      slippageBps: '50', gasEstimate: '280000', gasPriceWei: '102000000000', maximumGasCostWei: '28560000000000000',
+      walletBalanceWei: '219000000000000000000', walletQuoteBalanceAtoms: '0', bestBidX18: '24000000000000000',
+      estimatedPriceImpactBps: '0', valuationPriceX18: '24050000000000000', takerFeeBps: '0', fillOrKill: true, isMargin: false,
+      fingerprint: `0x${'34'.repeat(32)}`,
+    } } });
+  });
+  await page.addInitScript(({ injectedAccount }) => {
+    const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
+    const provider = {
+      isMetaMask: true,
+      request: async ({ method }: { method: string }) => {
+        if (method === 'eth_requestAccounts' || method === 'eth_accounts') return [injectedAccount];
+        if (method === 'eth_chainId') return '0x8f';
+        if (method === 'wallet_requestPermissions' || method === 'wallet_getPermissions') return [{ parentCapability: 'eth_accounts' }];
+        throw new Error(`Unsupported mock method ${method}`);
+      },
+      on: (event: string, listener: (...args: unknown[]) => void) => {
+        const handlers = listeners.get(event) ?? new Set(); handlers.add(listener); listeners.set(event, handlers);
+      },
+      removeListener: (event: string, listener: (...args: unknown[]) => void) => listeners.get(event)?.delete(listener),
+    };
+    Object.defineProperty(window, 'ethereum', { configurable: true, value: provider });
+  }, { injectedAccount: account });
+
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/desk');
+  await page.getByRole('button', { name: /Connect wallet/ }).click();
+  await page.getByRole('dialog').getByRole('button', { name: /MetaMask.*Connect|Browser wallet.*Connect/ }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await page.getByRole('slider', { name: 'Target MON percentage' }).fill('8');
+  await expect(page.getByRole('heading', { name: 'A MON sell is ready to inspect.' })).toBeVisible({ timeout: 20_000 });
+  const proposedAmount = page.getByText('Proposed MON amount').locator('..').locator('strong');
+  await expect(proposedAmount).toBeVisible();
+  expect(Number.parseFloat((await proposedAmount.textContent()) ?? '0')).toBeGreaterThanOrEqual(200);
+
+  const preflight = page.locator('.preflight');
+  const decision = page.locator('.decision');
+  const simulation = page.getByRole('button', { name: 'Run simulation' });
+  await simulation.scrollIntoViewIfNeeded();
+  await expect(simulation).toBeVisible();
+  await expect(simulation).toBeEnabled();
+  await simulation.click();
+  const prepared = page.locator('.prepared-review');
+  await expect(prepared.getByText('You would sell')).toBeVisible({ timeout: 20_000 });
+  await expect(prepared.getByRole('button', { name: 'Mainnet execution disabled' })).toBeDisabled();
+
+  const overlaps = (a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) =>
+    a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+  for (const viewport of [
+    { width: 1440, height: 1000 }, { width: 1366, height: 900 }, { width: 1024, height: 768 },
+    { width: 768, height: 1024 }, { width: 390, height: 844 }, { width: 375, height: 812 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await simulation.scrollIntoViewIfNeeded();
+    const [decisionBox, buttonBox] = await Promise.all([decision.boundingBox(), simulation.boundingBox()]);
+    expect(decisionBox, `decision card missing at ${viewport.width}px`).not.toBeNull();
+    expect(buttonBox, `simulation button missing at ${viewport.width}px`).not.toBeNull();
+    expect(overlaps(decisionBox!, buttonBox!), `decision overlaps simulation button at ${viewport.width}px`).toBe(false);
+    await prepared.scrollIntoViewIfNeeded();
+    const [stickyBox, reviewBox] = await Promise.all([decision.boundingBox(), prepared.boundingBox()]);
+    expect(reviewBox, `prepared review missing at ${viewport.width}px`).not.toBeNull();
+    expect(overlaps(stickyBox!, reviewBox!), `decision overlaps prepared review at ${viewport.width}px`).toBe(false);
+  }
+
+  await page.setViewportSize({ width: 1366, height: 1000 });
+  await preflight.scrollIntoViewIfNeeded();
+  if (process.env.CAPTURE_SCREENSHOTS === 'true') {
+    await preflight.screenshot({ path: 'docs/screenshots/sell-simulation-desktop.png' });
+  }
+});
+
 test('mocked injected wallet reaches a protected buy preparation without enabling a write', async ({ page }) => {
   const account = '0x7Db99F225Af7A1A21b7b6468Ed28F4bC60FbE937';
   const market = '0x065C9d28E428A0db40191a54d33d5b7c71a9C394';
