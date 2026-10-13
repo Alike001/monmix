@@ -1,33 +1,22 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { ConnectWallet } from '@/features/wallet/connect-wallet';
-
-const navigation = [
-  ['Market', '/markets'],
-  ['Strategy desk', '/desk'],
-  ['Activity', '/activity'],
-  ['Proof', '/proof'],
-] as const;
+import { PrimaryNavigation } from '@/components/primary-navigation';
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#main-content">Skip to main content</a>
       <header className="topbar">
         <Link className="brand" href="/" aria-label="Monad Strategy Desk home">
           <span className="brand-mark">M</span>
           <span>Strategy Desk</span>
           <small>safe mode</small>
         </Link>
-        <nav aria-label="Primary navigation">
-          {navigation.map(([label, href]) => (
-            <Link href={href} key={href}>
-              {label}
-            </Link>
-          ))}
-        </nav>
+        <PrimaryNavigation />
         <ConnectWallet compact />
       </header>
-      <main>{children}</main>
+      <main id="main-content">{children}</main>
       <footer className="footer">
         <div>
           <strong>Monad Strategy Desk</strong>

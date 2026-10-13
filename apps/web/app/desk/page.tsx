@@ -4,10 +4,10 @@ export default function DeskPage() {
   return (
     <div className="page">
       <header className="page-title">
-        <span className="eyebrow">02 · Shape the portfolio</span>
-        <h1>Turn holdings into one explainable decision.</h1>
-        <p>Connect an injected wallet, choose the MON share you want, and see whether the next adjustment should wait, be refused, or advance to an exact Kuru simulation.</p>
-        <div className="route-note"><span>Owner-controlled wallet</span><span>•</span><span>200 MON venue minimum</span><span>•</span><span>Execution off by default</span></div>
+        <span className="eyebrow">Portfolio strategy</span>
+        <h1>Keep your MON mix on target.</h1>
+        <p>See what you hold, choose the split you want, and get one clear next step using Kuru&apos;s live market.</p>
+        <div className="route-note"><span>Wallet stays in your control</span><span>•</span><span>200 MON minimum order</span><span>•</span><span>No automatic trading</span></div>
       </header>
       <AllocationPanel />
     </div>
