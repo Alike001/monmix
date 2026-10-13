@@ -83,7 +83,7 @@ export function ActivityJournal() {
 
   if (!ready) return <section className="card availability"><span className="eyebrow">Browser journal</span><h2>Checking locally recorded actions…</h2></section>;
   if (records.length === 0) {
-    return <section className="card record-empty"><div><div className="empty-icon">0</div><span className="eyebrow">No local activity yet</span><h2>Your verified actions will appear here.</h2><p>Start at the strategy desk to review your portfolio. Simulations do not create trade history, and execution is currently disabled.</p><Link className="button small" href="/desk">Open strategy desk</Link><p className="empty-footnote">This is history from this browser only—not a complete wallet or Kuru account history.</p></div></section>;
+    return <section className="card record-empty"><div><div className="empty-icon">0</div><span className="eyebrow">No local activity yet</span><h2>Your verified actions will appear here.</h2><p>Start in MonMix to review your portfolio. Simulations do not create trade history, and execution is currently disabled.</p><Link className="button small" href="/desk">Open MonMix</Link><p className="empty-footnote">This is history from this browser only—not a complete wallet or Kuru account history.</p></div></section>;
   }
   const allowanceAccounts = [...new Set(records.filter((record) => ['BUY_MON', 'APPROVE_USDC', 'REVOKE_USDC'].includes(record.action ?? '')).map((record) => record.account))];
   return (

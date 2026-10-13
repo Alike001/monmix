@@ -58,8 +58,9 @@ button { cursor: pointer; }
   border-radius: 10px;
   background: var(--night);
   color: var(--acid);
-  font-family: ui-monospace, monospace;
 }
+.brand-mark svg { width: 25px; height: 25px; overflow: visible; fill: none; stroke: var(--panel); stroke-linecap: round; stroke-linejoin: round; stroke-width: 3.2; }
+.brand-mark svg .brand-mark-accent { stroke: var(--acid); stroke-width: 2.4; }
 .brand small { padding: 4px 7px; border: 1px solid var(--line); border-radius: 99px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
 .topbar nav { display: flex; gap: clamp(8px, 2vw, 24px); color: #3e453d; font-size: 14px; }
 .topbar nav a { display: inline-flex; align-items: center; gap: 7px; padding: 9px 10px; border-radius: 9px; }
@@ -183,6 +184,7 @@ button { cursor: pointer; }
 .allocation-legend span { display: flex; align-items: center; gap: 6px; }
 .allocation-legend i { width: 10px; height: 4px; background: var(--night); }
 .allocation-legend i.target { width: 3px; height: 10px; background: var(--acid-dark); }
+.strategy-controls { min-width: 0; margin: 0; padding: 0; border: 0; }
 .preset-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .preset-card { display: grid; gap: 5px; min-height: 112px; padding: 15px; border: 1px solid var(--line); border-radius: 13px; background: #f6f4ed; color: var(--ink); text-align: left; }
 .preset-card:hover { border-color: #9ca094; }

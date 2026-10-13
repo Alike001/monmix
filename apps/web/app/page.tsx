@@ -6,10 +6,10 @@ export default function HomePage() {
     <div className="page">
       <section className="hero">
         <div className="hero-copy">
-          <span className="eyebrow">Target allocation, grounded on Monad</span>
-          <h1>Your MON allocation, explained before anything moves.</h1>
-          <p>Choose how much MON you want to hold. The desk values your wallet against Kuru&apos;s live MON/USDC order book, explains the drift, and prepares a protected buy or sell before your wallet sees it.</p>
-          <div className="hero-actions"><Link className="button" href="/desk">Open strategy desk</Link><Link className="button secondary" href="/markets">Inspect the market</Link></div>
+          <span className="eyebrow">Your crypto, your mix.</span>
+          <h1>Keep your MON mix on target.</h1>
+          <p>MonMix helps you keep your MON and USDC holdings aligned with your goals. Choose your target allocation, see when your portfolio drifts, and review protected trades through Kuru to rebalance—all while keeping control of your wallet.</p>
+          <div className="hero-actions"><Link className="button" href="/desk">Open MonMix</Link><Link className="button secondary" href="/markets">Inspect the market</Link></div>
           <div className="route-note"><span>Live Kuru reads</span><span>•</span><span>Deterministic policy</span><span>•</span><span>Execution off by default</span></div>
         </div>
         <MarketHeroCard />

@@ -1,4 +1,7 @@
+import type { Metadata } from 'next';
 import { ActivityJournal } from '@/features/activity/activity-journal';
+
+export const metadata: Metadata = { title: 'Activity', description: 'Review browser-local transaction preparation and chain-authoritative receipt evidence.' };
 
 export default function ActivityPage() {
   return (

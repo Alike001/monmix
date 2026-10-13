@@ -17,10 +17,22 @@ test('Vercel uses the repository-root workspace and guarded release build', () =
 
 test('toolchain versions are pinned for reproducible installs', () => {
   const manifest = json('package.json');
+  assert.equal(manifest.name, 'monmix');
   assert.equal(manifest.packageManager, 'pnpm@10.34.5');
   assert.deepEqual(manifest.engines, { node: '22.x' });
   assert.equal(readFileSync('.node-version', 'utf8').trim(), '22.16.0');
   assert.equal(readFileSync('.nvmrc', 'utf8').trim(), '22.16.0');
+});
+
+test('public identity and metadata are release-complete', () => {
+  const layout = readFileSync('apps/web/app/layout.tsx', 'utf8');
+  const manifest = readFileSync('apps/web/app/manifest.ts', 'utf8');
+  const readme = readFileSync('README.md', 'utf8');
+  assert.match(layout, /MonMix — Your crypto, your mix\./);
+  assert.match(layout, /openGraph:/);
+  assert.match(layout, /twitter:/);
+  assert.match(manifest, /short_name: 'MonMix'/);
+  assert.match(readme, /github\.com\/Alike001\/monmix/);
 });
 
 test('CI and example environments explicitly disable execution', () => {

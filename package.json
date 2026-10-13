@@ -1,9 +1,9 @@
 {
-  "name": "monad-strategy-desk",
+  "name": "monmix",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "An owner-controlled Monad portfolio strategy desk with protected Kuru trade preparation.",
+  "description": "MonMix keeps MON and USDC allocations aligned with user goals through protected Kuru trade preparation.",
   "packageManager": "pnpm@10.34.5",
   "scripts": {
     "dev": "pnpm --filter @monad-strategy/web dev",
@@ -12,6 +12,7 @@
     "test": "pnpm -r test && node --experimental-strip-types --test tests/release/*.test.ts",
     "test:live": "pnpm --filter @monad-strategy/kuru-adapter test:live",
     "test:e2e": "playwright test",
+    "screenshots": "node scripts/capture-screenshots.mjs",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint . --max-warnings=0",
     "audit:prod": "pnpm audit --prod --audit-level high",

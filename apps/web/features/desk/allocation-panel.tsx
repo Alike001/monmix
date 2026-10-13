@@ -33,12 +33,13 @@ export function AllocationPanel() {
   const [minimumTrade, setMinimumTrade] = useState(DEFAULT_STRATEGY_PREFERENCES.minimumTrade);
   const [paused, setPaused] = useState(false);
   const [savedMessage, setSavedMessage] = useState('');
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const saved = readStrategyPreferences(window.localStorage);
       setPreset(saved.preset); setTarget(saved.target); setTrigger(saved.trigger); setPerActionCap(saved.perActionCap);
-      setDailyCap(saved.dailyCap); setMinimumTrade(saved.minimumTrade); setPaused(saved.paused);
+      setDailyCap(saved.dailyCap); setMinimumTrade(saved.minimumTrade); setPaused(saved.paused); setPreferencesLoaded(true);
     }, 0);
     return () => window.clearTimeout(timer);
   }, []);
@@ -106,6 +107,7 @@ export function AllocationPanel() {
       </section>
       <section className="card panel target-panel">
         <div className="panel-head"><div><span className="eyebrow">Your target</span><h2>Choose the mix you want to maintain</h2><p>A saved target is a browser preference, not an automatic trade or onchain limit.</p></div></div>
+        <fieldset className="strategy-controls" disabled={!preferencesLoaded} aria-busy={!preferencesLoaded}>
         <div className="preset-grid" role="radiogroup" aria-label="Allocation presets">
           {ALLOCATION_PRESETS.map((item) => <button key={item.id} type="button" role="radio" aria-checked={preset === item.id} className={`preset-card ${preset === item.id ? 'selected' : ''}`} onClick={() => { setPreset(item.id); setTarget(item.monPercent); setSavedMessage(''); }}><strong>{item.name}</strong><span>{item.monPercent}% MON · {100 - Number(item.monPercent)}% USDC</span><small>{item.description}</small></button>)}
           <button type="button" role="radio" aria-checked={preset === 'custom'} className={`preset-card ${preset === 'custom' ? 'selected' : ''}`} onClick={() => setPreset('custom')}><strong>Custom</strong><span>Your exact mix</span><small>Adjust the slider below.</small></button>
@@ -113,6 +115,7 @@ export function AllocationPanel() {
         <div className="target-control"><div className="target-numbers"><strong>{target || '0'}% MON</strong><span>{Math.max(0, 100 - Number(target || 0))}% USDC</span></div><input aria-label="Target MON percentage" type="range" min="0" max="100" step="1" value={target} onChange={(event) => changeTarget(event.target.value)} /><div className="target-scale"><span>All USDC</span><span>Balanced</span><span>All MON</span></div></div>
         <details className="advanced-settings"><summary>Review limits and advanced settings</summary><div className="form-grid"><Field label="Act when allocation differs by" value={trigger} onChange={setTrigger} suffix="%" /><Field label="Maximum size per suggestion" value={perActionCap} onChange={setPerActionCap} suffix="USDC" /><Field label="Advisory daily maximum" value={dailyCap} onChange={setDailyCap} suffix="USDC" /><Field label="Ignore adjustments below" value={minimumTrade} onChange={setMinimumTrade} suffix="USDC" /><div className="toggle-row"><div><strong>Pause suggestions</strong><div className="metric-label">Stored in this browser</div></div><button type="button" aria-pressed={paused} aria-label="Pause strategy" className={`toggle ${paused ? 'on' : ''}`} onClick={() => setPaused((value) => !value)} /></div></div></details>
         <div className="preference-actions"><button className="button small secondary" type="button" onClick={() => { saveStrategyPreferences(window.localStorage, { preset, target, trigger, perActionCap, dailyCap, minimumTrade, paused }); setSavedMessage('Saved in this browser.'); }}>Save strategy</button><span aria-live="polite">{savedMessage || 'Nothing is synced onchain or between devices.'}</span></div>
+        </fieldset>
       </section>
     </div><DecisionCard result={result} target={target} minimumTrade={minimumTrade} />
     {result.kind === 'decision' && result.decision.status === 'REVIEW' && result.review?.status === 'REVIEW' && connection.address ? result.decision.side === 'SELL_BASE'

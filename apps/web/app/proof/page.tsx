@@ -1,10 +1,13 @@
+import type { Metadata } from 'next';
 import { MarketPanel } from '@/features/market/market-panel';
 import { KURU_MON_USDC_IMPLEMENTATION, KURU_MON_USDC_IMPLEMENTATION_CODE_HASH, KURU_MON_USDC_MARKET, USDC_ADDRESS } from '@monad-strategy/kuru-adapter';
+
+export const metadata: Metadata = { title: 'Proof', description: 'Inspect MonMix deployment identity, live Kuru evidence, and explicit safety boundaries.' };
 
 export default function ProofPage() {
   return (
     <div className="page">
-      <header className="page-title"><span className="eyebrow">Trust & verification</span><h1>See what the desk verifies.</h1><p>Live checks are separated from future capabilities, with technical identifiers available when you want them.</p></header>
+      <header className="page-title"><span className="eyebrow">Trust & verification</span><h1>See what MonMix verifies.</h1><p>Live checks are separated from future capabilities, with technical identifiers available when you want them.</p></header>
       <div className="proof-grid">
         <section className="card proof-card full"><span className="eyebrow">Live application evidence</span><h3>Current Kuru contract read</h3><MarketPanel compact /></section>
         <section className="card proof-card"><span className="eyebrow">Deployment identity</span><h3>Verified Kuru market</h3><div className="proof-summary"><strong>Monad mainnet</strong><span>MON / USDC · chain 143</span><small>Proxy, implementation and code hash are checked before simulation.</small></div><details><summary>View contract identifiers</summary><div className="evidence-list compact-evidence"><div className="evidence-row"><span>Market proxy</span><strong>{KURU_MON_USDC_MARKET}</strong></div><div className="evidence-row"><span>Implementation</span><strong>{KURU_MON_USDC_IMPLEMENTATION}</strong></div><div className="evidence-row"><span>Code hash</span><strong>{KURU_MON_USDC_IMPLEMENTATION_CODE_HASH}</strong></div><div className="evidence-row"><span>Quote token</span><strong>{USDC_ADDRESS}</strong></div><div className="evidence-row"><span>Base token</span><strong>Native MON · zero address</strong></div></div></details></section>

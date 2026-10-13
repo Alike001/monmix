@@ -16,6 +16,17 @@ test('every public route and internal navigation target resolves', async ({ requ
   }
 });
 
+test('MonMix identity and release metadata render', async ({ page, request }) => {
+  await page.goto('/');
+  await expect(page).toHaveTitle('MonMix — Your crypto, your mix.');
+  await expect(page.getByRole('link', { name: 'MonMix home' })).toBeVisible();
+  await expect(page.getByText('Your crypto, your mix.', { exact: true }).first()).toBeVisible();
+  await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', 'MonMix — Your crypto, your mix.');
+  expect((await request.get('/icon.svg')).status()).toBe(200);
+  expect((await request.get('/manifest.webmanifest')).status()).toBe(200);
+  expect((await request.get('/opengraph-image')).status()).toBe(200);
+});
+
 test('public routes load without missing same-origin page resources or runtime errors', async ({ page }) => {
   const failures: string[] = [];
   page.on('pageerror', (error) => failures.push(`pageerror: ${error.message}`));
@@ -32,7 +43,7 @@ test('public routes load without missing same-origin page resources or runtime e
     }
   });
   for (const route of routes) {
-    await page.goto(route, { waitUntil: 'domcontentloaded' });
+    await page.goto(route, { waitUntil: 'networkidle' });
     await expect(page.locator('main h1').first()).toBeVisible();
   }
   expect(failures).toEqual([]);
@@ -101,7 +112,7 @@ for (const width of [375, 390, 768]) {
   test(`mobile activity action can scroll fully above navigation at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: width === 768 ? 1024 : 812 });
     await page.goto('/activity');
-    const action = page.getByRole('link', { name: 'Open strategy desk' });
+    const action = page.getByRole('link', { name: 'Open MonMix' });
     await action.scrollIntoViewIfNeeded();
     const nav = await page.locator('nav[aria-label="Primary navigation"]').boundingBox();
     const actionBox = await action.boundingBox();

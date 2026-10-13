@@ -1,4 +1,7 @@
+import type { Metadata } from 'next';
 import { AllocationPanel } from '@/features/desk/allocation-panel';
+
+export const metadata: Metadata = { title: 'Strategy', description: 'Compare your current MON and USDC allocation with your target and review a protected Kuru adjustment.' };
 
 export default function DeskPage() {
   return (

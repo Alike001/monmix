@@ -1,4 +1,7 @@
+import type { Metadata } from 'next';
 import { MarketPanel } from '@/features/market/market-panel';
+
+export const metadata: Metadata = { title: 'Live MON / USDC market', description: 'Inspect the verified Kuru MON/USDC order book on Monad mainnet.' };
 
 export default function MarketsPage() {
   return (
