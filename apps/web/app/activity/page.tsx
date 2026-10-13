@@ -1,10 +1,10 @@
+import { ActivityJournal } from '@/features/activity/activity-journal';
+
 export default function ActivityPage() {
   return (
     <div className="page">
-      <header className="page-title"><span className="eyebrow">03 · Activity</span><h1>No transaction history is the truthful history.</h1><p>Milestone 1 performs public reads and local policy evaluation only. It does not create orders, approvals, signatures, transaction hashes, fills, or cancellations.</p></header>
-      <section className="card record-empty">
-        <div><div className="empty-icon">∅</div><span className="eyebrow">Verified empty state</span><h2>No onchain actions from this application</h2><p>Once a later, separately approved milestone submits a transaction, this surface must reconcile broadcast, inclusion, Kuru order events, fills, cancellation, and failure. Until then, inventing records would be misleading.</p><div className="notice" style={{ marginTop: 20 }}>Future states, not active: proposed → awaiting owner → broadcast → included → filled / partial / open / cancelled / reverted.</div></div>
-      </section>
+      <header className="page-title"><span className="eyebrow">03 · Activity</span><h1>Every state needs evidence.</h1><p>This browser journal records wallet requests before submission, persists transaction hashes, and reconciles receipts with Kuru Trade events. Simulation alone never appears as a trade.</p></header>
+      <ActivityJournal />
     </div>
   );
 }

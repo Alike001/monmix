@@ -16,7 +16,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Link className="brand" href="/" aria-label="Monad Strategy Desk home">
           <span className="brand-mark">M</span>
           <span>Strategy Desk</span>
-          <small>read-only</small>
+          <small>safe mode</small>
         </Link>
         <nav aria-label="Primary navigation">
           {navigation.map(([label, href]) => (
@@ -31,7 +31,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <footer className="footer">
         <div>
           <strong>Monad Strategy Desk</strong>
-          <p>Live reads, deterministic reviews, zero transaction capability in Milestone 1.</p>
+          <p>Live Kuru reads, deterministic policy, exact simulation, owner-confirmed execution disabled by default.</p>
         </div>
         <div className="footer-links">
           <Link href="/docs">Method & limits</Link>

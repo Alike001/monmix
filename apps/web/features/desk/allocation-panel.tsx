@@ -18,6 +18,8 @@ import { ConnectWallet } from '@/features/wallet/connect-wallet';
 import { formatCompactAtoms, formatRaw } from '@/lib/format';
 import { useMarket } from '@/lib/use-market';
 import { getWalletReadiness } from '@/lib/wallet-state';
+import { NativeSellPreflight } from '@/features/execution/native-sell-preflight';
+import { readStrategyPreferences, saveStrategyPreferences } from '@/lib/strategy-preferences';
 
 type BalanceState =
   | { kind: 'idle' }
@@ -48,6 +50,20 @@ export function AllocationPanel() {
   const [dailyCap, setDailyCap] = useState('25');
   const [minimumTrade, setMinimumTrade] = useState('5');
   const [paused, setPaused] = useState(false);
+  const [savedMessage, setSavedMessage] = useState('');
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const saved = readStrategyPreferences(window.localStorage);
+      setTarget(saved.target);
+      setTrigger(saved.trigger);
+      setPerActionCap(saved.perActionCap);
+      setDailyCap(saved.dailyCap);
+      setMinimumTrade(saved.minimumTrade);
+      setPaused(saved.paused);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (readiness !== 'READY' || !connection.address) {
@@ -55,7 +71,7 @@ export function AllocationPanel() {
     }
     const controller = new AbortController();
     const owner = connection.address;
-    fetch(`/api/balances?address=${connection.address}`, { cache: 'no-store', signal: controller.signal })
+    const loadBalances = () => fetch(`/api/balances?address=${owner}`, { cache: 'no-store', signal: controller.signal })
       .then(async (response) => {
         const payload = (await response.json()) as
           | { ok: true; mon: string; usdc: string }
@@ -67,7 +83,12 @@ export function AllocationPanel() {
         if (error instanceof DOMException && error.name === 'AbortError') return;
         setBalances({ kind: 'error', owner, message: error instanceof Error ? error.message : 'Balance read failed' });
       });
-    return () => controller.abort();
+    void loadBalances();
+    window.addEventListener('strategy-desk:balances-stale', loadBalances);
+    return () => {
+      controller.abort();
+      window.removeEventListener('strategy-desk:balances-stale', loadBalances);
+    };
   }, [connection.address, readiness]);
 
   const result = useMemo<StrategyResult>(() => {
@@ -159,17 +180,26 @@ export function AllocationPanel() {
             <Field label="Ignore adjustments below" value={minimumTrade} onChange={setMinimumTrade} suffix="USDC" />
             <div className="toggle-row"><div><strong>Pause strategy</strong><div className="metric-label">Local review control</div></div><button type="button" aria-pressed={paused} aria-label="Pause strategy" className={`toggle ${paused ? 'on' : ''}`} onClick={() => setPaused((value) => !value)} /></div>
           </div>
-          <div className="notice" style={{ marginTop: 18 }}>Daily usage is zero in Milestone 1 because no order history exists. The caps are advisory TypeScript inputs, not contract-enforced limits.</div>
+          <div className="preference-actions"><button className="button small secondary" type="button" onClick={() => {
+            saveStrategyPreferences(window.localStorage, { target, trigger, perActionCap, dailyCap, minimumTrade, paused });
+            setSavedMessage('Saved in this browser only.');
+          }}>Save these preferences</button><span>{savedMessage || 'Not synced onchain or across devices.'}</span></div>
+          <div className="notice" style={{ marginTop: 18 }}>Daily usage is currently evaluated as zero; the local journal is evidence, not an independently enforced spending ledger. Every saved setting is an advisory browser preference, not a contract-enforced limit.</div>
         </section>
       </div>
 
       <DecisionCard result={result} />
+      {result.kind === 'decision' && result.decision.status === 'REVIEW' &&
+      result.decision.side === 'SELL_BASE' && result.review?.status === 'REVIEW' && connection.address ? (
+        <NativeSellPreflight account={connection.address} baseAmountAtoms={result.review.estimatedBaseAtoms} />
+      ) : null}
     </div>
   );
 }
 
 function Field({ label, value, onChange, suffix }: { label: string; value: string; onChange: (value: string) => void; suffix: string }) {
-  return <div className="field"><label>{label}</label><div className="input-wrap"><input inputMode="decimal" value={value} onChange={(event) => onChange(event.target.value)} /><span>{suffix}</span></div></div>;
+  const id = `strategy-${label.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-')}`;
+  return <div className="field"><label htmlFor={id}>{label}</label><div className="input-wrap"><input id={id} inputMode="decimal" value={value} onChange={(event) => onChange(event.target.value)} /><span>{suffix}</span></div></div>;
 }
 
 function DecisionCard({ result }: { result: StrategyResult }) {
@@ -179,7 +209,7 @@ function DecisionCard({ result }: { result: StrategyResult }) {
         <div className="decision-status"><span className="eyebrow">Deterministic output</span><span className="decision-code">BLOCK</span></div>
         <h2>{result.title}</h2><p>{result.detail}</p>
         <div className="review-metrics"><div className="review-metric"><span>Reason code</span><strong>{result.code}</strong></div><div className="review-metric"><span>Transaction capability</span><strong>Disabled</strong></div></div>
-        <div className="notice danger">No approval, signature, or transaction path exists in this application.</div>
+        <div className="notice danger">No transaction can proceed in this state. The native sell lifecycle also remains disabled by default pending explicit owner approval.</div>
       </aside>
     );
   }
@@ -198,7 +228,8 @@ function DecisionCard({ result }: { result: StrategyResult }) {
         {review?.status === 'REVIEW' ? <><div className="review-metric"><span>Estimated MON</span><strong>{formatCompactAtoms(review.estimatedBaseAtoms, 18, 4)}</strong></div><div className="review-metric"><span>Worst visible price</span><strong>${formatRaw(review.worstPriceRaw, snapshot.params.pricePrecision, 6)}</strong></div><div className="review-metric"><span>Book levels used</span><strong>{review.levelsUsed}</strong></div></> : null}
         {review?.status === 'BLOCK' ? <div className="review-metric"><span>Venue review</span><strong>BLOCK · {review.code}</strong></div> : null}
       </div>
-      <div className="notice safe">Review only. No order is constructed, signed, approved, or broadcast. Estimates can differ from future execution.</div>
+      {review?.status === 'BLOCK' && review.code === 'BELOW_MARKET_MINIMUM' ? <div className="notice danger">This adjustment is smaller than Kuru’s declared 200 MON market minimum. Strategy Desk will not prepare it, even though the deployed market-sell function does not enforce that limit itself. Wait for more drift or revise the target and advisory cap.</div> : null}
+      <div className="notice safe">Policy review only. A separate exact simulation is offered only for eligible native MON sells. Nothing is signed or broadcast unless the owner later enables execution and confirms in an injected wallet.</div>
     </aside>
   );
 }
