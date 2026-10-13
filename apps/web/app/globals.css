@@ -95,7 +95,8 @@ button { cursor: pointer; }
 .token { display: grid; place-items: center; width: 42px; height: 42px; margin-right: -8px; border: 3px solid var(--night); border-radius: 50%; background: var(--acid); color: var(--night); font-size: 12px; font-weight: 900; }
 .token.quote { background: white; }
 .market-card-body { padding: 26px; }
-.metric-label { color: #9aa398; font-family: ui-monospace, monospace; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+.metric-label { color: #596157; font-family: ui-monospace, monospace; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+.dark-card .metric-label { color: #aeb6ac; }
 .big-price { margin: 8px 0 4px; font-family: ui-monospace, monospace; font-size: clamp(34px, 5vw, 58px); letter-spacing: -.05em; }
 .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin: 22px -26px -26px; background: #313931; }
 .metric { padding: 18px 20px; background: var(--night); }
