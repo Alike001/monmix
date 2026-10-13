@@ -10,9 +10,10 @@
 - [x] Public README badges, selected screenshots, security policy and judge quickstart.
 - [x] Production dependency audit has no known advisories after the Next.js 16.3.8 security update.
 - [x] Owner confirms the destination GitHub organization/repository: `Alike001/monmix`.
-- [ ] Configure branch protection and require the verification workflow.
-- [ ] Confirm repository visibility is public before submission.
+- [ ] Configure branch protection and require the verification workflow (repository rules are an owner administration step).
+- [x] Confirm repository visibility is public before submission: `https://github.com/Alike001/monmix`.
 - [ ] Add final public URL, repository URL and demo-video URL to README/submission.
+- [x] First public Node 22 GitHub Actions verification completed successfully.
 
 ## Vercel readiness
 

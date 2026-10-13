@@ -22,5 +22,7 @@
 | 2026-10-13 | Concurrent actions are serialized across changing preparation blocks | Browser-journal regression test using distinct fingerprints for the same account/market | Verified in code |
 | 2026-10-13 | Residual allowance is observable and zero-allowance recovery is exact | Live allowance read plus deterministic `approve(market, 0)` simulation test | Verified read-only; no approval or revocation sent |
 | 2026-10-13 | Funded MetaMask-compatible extension journey | Requires owner-attended browser session | Not yet performed; mocked EIP-1193 coverage is not real-wallet evidence |
+| 2026-10-13 | MonMix public source release | Public `Alike001/monmix` main at `80d5d340be1784ccff8ce3ce5c387703ec876290`; README, MIT license and notices returned HTTP 200 | Verified |
+| 2026-10-13 | Public Node 22 release workflow | GitHub Actions run `38438213353`: frozen install, audit, 64 tests, typecheck, lint, guarded build and 39 browser/axe cases | Verified |
 | Future | Funded approval and user-confirmed Kuru trade | Requires explicit owner approval and transaction receipts | Unverified on mainnet |
 | Future | Enforceable caps and automation | Requires independently enforced authorization and revocation | Unverified / not implemented |
