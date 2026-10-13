@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { beginJournalRecord, readJournal, updateJournalRecord, walletFailureStatus } from '../lib/transaction-journal.ts';
+import { beginJournalRecord, portfolioAllocationBps, readJournal, recordPreparedAction, updateJournalRecord, walletFailureStatus } from '../lib/transaction-journal.ts';
 
 function memoryStorage() {
   const data = new Map<string, string>();
@@ -34,6 +34,36 @@ test('journal survives reload and persists transaction hashes', () => {
   assert.equal(reloaded[0]?.hash, `0x${'ab'.repeat(32)}`);
 });
 
+test('prepared buy evidence is durable without pretending a wallet request occurred', () => {
+  const storage = memoryStorage();
+  const prepared = recordPreparedAction(storage, {
+    ...input,
+    action: 'BUY_MON',
+    quoteAmountAtoms: '5000000',
+    expectedBaseAtoms: '204000000000000000000',
+    minimumBaseAtoms: '202980000000000000000',
+  }, new Date('2026-10-13T10:00:00Z'));
+  assert.equal(prepared.status, 'PREPARED');
+  assert.equal(readJournal(storage)[0]?.action, 'BUY_MON');
+  assert.doesNotThrow(() => beginJournalRecord(storage, { ...input, action: 'BUY_MON', quoteAmountAtoms: '5000000' }));
+});
+
+test('exact approval and buy attempts remain separate journal actions', () => {
+  const storage = memoryStorage();
+  const approval = beginJournalRecord(storage, {
+    ...input,
+    action: 'APPROVE_USDC',
+    baseAmountAtoms: '0',
+    minimumQuoteAtoms: '0',
+    approvalAmountAtoms: '5000000',
+    approvalSpender: input.marketAddress,
+  });
+  updateJournalRecord(storage, approval.id, { status: 'CONFIRMED' });
+  const buy = beginJournalRecord(storage, { ...input, action: 'BUY_MON', quoteAmountAtoms: '5000000' });
+  assert.equal(readJournal(storage).find((record) => record.id === approval.id)?.action, 'APPROVE_USDC');
+  assert.equal(buy.action, 'BUY_MON');
+});
+
 test('journal preserves verified received amount and before/after wallet evidence', () => {
   const storage = memoryStorage();
   const record = beginJournalRecord(storage, { ...input, expectedQuoteAtoms: '4838400', beforeMonAtoms: '1000000000000000000000', beforeUsdcAtoms: '473753' });
@@ -57,4 +87,9 @@ test('missing and reverted receipts remain distinct durable terminal evidence', 
   const records = readJournal(storage);
   assert.equal(records.find((record) => record.id === first.id)?.status, 'UNRESOLVED');
   assert.equal(records.find((record) => record.id === second.id)?.status, 'REVERTED');
+});
+
+test('portfolio allocation uses bigint atoms and rounds down deterministically', () => {
+  assert.equal(portfolioAllocationBps(200n * 10n ** 18n, 5_000_000n, 25_000_000_000_000_000n), 5_000n);
+  assert.equal(portfolioAllocationBps(0n, 0n, 25_000_000_000_000_000n), 0n);
 });

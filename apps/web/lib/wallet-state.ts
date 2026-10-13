@@ -12,7 +12,7 @@ import { getAddress, type Address } from 'viem';
 
 
 export function assertWalletExecutionContext(
-  connection: { status: string; address?: Address; chainId?: number },
+  connection: { status: string; address?: Address | undefined; chainId?: number | undefined },
   preparation: { account: Address; chainId: number; expiresAtSeconds: string },
   nowSeconds = BigInt(Math.floor(Date.now() / 1000)),
 ): void {

@@ -3,6 +3,7 @@ import type { Address, Hex } from 'viem';
 export const JOURNAL_STORAGE_KEY = 'strategy-desk:transaction-journal:v1';
 
 export type JournalStatus =
+  | 'PREPARED'
   | 'AWAITING_WALLET'
   | 'REJECTED'
   | 'BROADCAST'
@@ -17,6 +18,7 @@ export interface JournalRecord {
   account: Address;
   chainId: 143;
   marketAddress: Address;
+  action?: 'SELL_MON' | 'BUY_MON' | 'APPROVE_USDC';
   baseAmountAtoms: string;
   minimumQuoteAtoms: string;
   expectedQuoteAtoms?: string;
@@ -25,12 +27,37 @@ export interface JournalRecord {
   afterMonAtoms?: string;
   afterUsdcAtoms?: string;
   receivedQuoteAtoms?: string;
+  receivedBaseAtoms?: string;
+  networkFeeWei?: string;
+  quoteAmountAtoms?: string;
+  expectedBaseAtoms?: string;
+  minimumBaseAtoms?: string;
+  approvalAmountAtoms?: string;
+  approvalSpender?: Address;
+  reconciledAt?: string;
+  beforeAllocationBps?: string;
+  afterAllocationBps?: string;
+  valuationPriceX18?: string;
   createdAt: string;
   updatedAt: string;
   hash?: Hex;
   blockNumber?: string;
   filledSizeRaw?: string;
   error?: string;
+}
+
+export function recordPreparedAction(
+  storage: Pick<Storage, 'getItem' | 'setItem'>,
+  input: Omit<JournalRecord, 'id' | 'status' | 'createdAt' | 'updatedAt'>,
+  now = new Date(),
+): JournalRecord {
+  const records = readJournal(storage);
+  const timestamp = now.toISOString();
+  const existing = records.find((record) => record.fingerprint === input.fingerprint && record.status === 'PREPARED');
+  if (existing) return updateJournalRecord(storage, existing.id, input, now);
+  const record: JournalRecord = { ...input, id: `${input.fingerprint}:prepared`, status: 'PREPARED', createdAt: timestamp, updatedAt: timestamp };
+  writeJournal(storage, [record, ...records]);
+  return record;
 }
 
 export function readJournal(storage: Pick<Storage, 'getItem'>): JournalRecord[] {
@@ -99,4 +126,10 @@ export function walletFailureStatus(error: unknown): 'REJECTED' | 'UNRESOLVED' {
   return candidate.code === 4001 || text.includes('user rejected') || text.includes('user denied')
     ? 'REJECTED'
     : 'UNRESOLVED';
+}
+
+export function portfolioAllocationBps(monAtoms: bigint, usdcAtoms: bigint, priceX18: bigint): bigint {
+  const monValueUsdcAtoms = (monAtoms * priceX18 * 1_000_000n) / (10n ** 18n * 10n ** 18n);
+  const total = monValueUsdcAtoms + usdcAtoms;
+  return total === 0n ? 0n : (monValueUsdcAtoms * 10_000n) / total;
 }

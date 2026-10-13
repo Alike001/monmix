@@ -15,6 +15,8 @@ import { formatCompactAtoms } from '@/lib/format';
 import { publicClient } from '@/lib/public-client';
 import {
   beginJournalRecord,
+  recordPreparedAction,
+  portfolioAllocationBps,
   updateJournalRecord,
   walletFailureStatus,
 } from '@/lib/transaction-journal';
@@ -59,6 +61,13 @@ export function NativeSellPreflight({ account, baseAmountAtoms }: { account: Add
     setExecutionMessage('');
     try {
       const preparation = await requestPreflight();
+      recordPreparedAction(window.localStorage, {
+        fingerprint: preparation.fingerprint, action: 'SELL_MON', account: preparation.account, chainId: 143,
+        marketAddress: preparation.marketAddress, baseAmountAtoms: preparation.baseAmountAtoms,
+        minimumQuoteAtoms: preparation.minimumQuoteAtoms, expectedQuoteAtoms: preparation.expectedQuoteAtoms,
+        beforeMonAtoms: preparation.walletBalanceWei, beforeUsdcAtoms: preparation.walletQuoteBalanceAtoms,
+        valuationPriceX18: preparation.valuationPriceX18,
+      });
       setState({ kind: 'ready', preparation, receivedAtSeconds: BigInt(Math.floor(Date.now() / 1000)) });
     } catch (error) {
       const failure = error as Error & { code?: string };
@@ -83,6 +92,7 @@ export function NativeSellPreflight({ account, baseAmountAtoms }: { account: Add
       assertWalletExecutionContext(connection, fresh, now);
       const journal = beginJournalRecord(window.localStorage, {
         fingerprint: fresh.fingerprint,
+        action: 'SELL_MON',
         account: fresh.account,
         chainId: 143,
         marketAddress: fresh.marketAddress,
@@ -91,6 +101,7 @@ export function NativeSellPreflight({ account, baseAmountAtoms }: { account: Add
         expectedQuoteAtoms: fresh.expectedQuoteAtoms,
         beforeMonAtoms: fresh.walletBalanceWei,
         beforeUsdcAtoms: fresh.walletQuoteBalanceAtoms,
+        valuationPriceX18: fresh.valuationPriceX18,
       });
       journalId = journal.id;
       setExecutionMessage('Awaiting explicit confirmation in your wallet. Do not confirm unexpected values.');
@@ -111,7 +122,7 @@ export function NativeSellPreflight({ account, baseAmountAtoms }: { account: Add
         setExecutionMessage('Transaction reverted. No retry was attempted.');
         return;
       }
-      const trades = decodeKuruTrades(receipt.logs, fresh.account);
+      const trades = decodeKuruTrades(receipt.logs, fresh.account).filter((trade) => !trade.isBuy);
       if (trades.length === 0) {
         updateJournalRecord(window.localStorage, journal.id, { status: 'UNRESOLVED', blockNumber: receipt.blockNumber.toString(), error: 'Successful receipt contained no verified Kuru Trade event.' });
         setExecutionMessage('Receipt found, but no matching Kuru Trade event was verified. Marked unresolved.');
@@ -120,7 +131,7 @@ export function NativeSellPreflight({ account, baseAmountAtoms }: { account: Add
       const filledSizeRaw = trades.reduce((sum, trade) => sum + trade.filledSizeRaw, 0n);
       const after = await readWalletBalances(publicClient, fresh.account);
       const received = after.usdc >= BigInt(fresh.walletQuoteBalanceAtoms) ? after.usdc - BigInt(fresh.walletQuoteBalanceAtoms) : undefined;
-      updateJournalRecord(window.localStorage, journal.id, { status: 'CONFIRMED', blockNumber: receipt.blockNumber.toString(), filledSizeRaw: filledSizeRaw.toString(), afterMonAtoms: after.mon.toString(), afterUsdcAtoms: after.usdc.toString(), ...(received === undefined ? {} : { receivedQuoteAtoms: received.toString() }) });
+      updateJournalRecord(window.localStorage, journal.id, { status: 'CONFIRMED', blockNumber: receipt.blockNumber.toString(), filledSizeRaw: filledSizeRaw.toString(), networkFeeWei: (receipt.gasUsed * receipt.effectiveGasPrice).toString(), afterMonAtoms: after.mon.toString(), afterUsdcAtoms: after.usdc.toString(), beforeAllocationBps: portfolioAllocationBps(BigInt(fresh.walletBalanceWei), BigInt(fresh.walletQuoteBalanceAtoms), BigInt(fresh.valuationPriceX18)).toString(), afterAllocationBps: portfolioAllocationBps(after.mon, after.usdc, BigInt(fresh.valuationPriceX18)).toString(), ...(received === undefined ? {} : { receivedQuoteAtoms: received.toString() }) });
       window.dispatchEvent(new Event('strategy-desk:balances-stale'));
       setExecutionMessage(`Confirmed with ${trades.length} verified Kuru fill event${trades.length === 1 ? '' : 's'}.`);
     } catch (error) {

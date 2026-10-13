@@ -86,3 +86,52 @@ test('activity presents ordinary-language outcome and keeps raw evidence collaps
   await expect(page.getByText('Technical evidence')).toBeVisible();
   await expect(page.getByText('Monad mainnet · 143')).toBeHidden();
 });
+
+test('prepared buy is clearly unsigned and distinct from a completed trade', async ({ page }) => {
+  await page.goto('/activity');
+  await page.evaluate(() => localStorage.setItem('strategy-desk:transaction-journal:v1', JSON.stringify([{
+    id: 'prepared-buy', fingerprint: `0x${'34'.repeat(32)}`, status: 'PREPARED', action: 'BUY_MON',
+    account: `0x${'11'.repeat(20)}`, chainId: 143, marketAddress: `0x${'22'.repeat(20)}`,
+    baseAmountAtoms: '205000000000000000000', minimumQuoteAtoms: '0', quoteAmountAtoms: '5000000',
+    expectedBaseAtoms: '205000000000000000000', minimumBaseAtoms: '203975000000000000000',
+    createdAt: '2026-10-13T10:00:00.000Z', updatedAt: '2026-10-13T10:00:00.000Z',
+  }])))
+  await page.reload();
+  await expect(page.getByText('PREPARED', { exact: true })).toBeVisible();
+  await expect(page.getByText('Prepared from fresh market data, but no wallet request was made.')).toBeVisible();
+  await expect(page.getByText('Not yet verified')).toBeVisible();
+  await expect(page.getByRole('link', { name: /View transaction/ })).toHaveCount(0);
+});
+
+test('mocked injected wallet reaches a truthful protected buy preparation without enabling a write', async ({ page }) => {
+  const account = '0x7Db99F225Af7A1A21b7b6468Ed28F4bC60FbE937';
+  await page.addInitScript(({ injectedAccount }) => {
+    const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
+    const provider = {
+      isMetaMask: true,
+      request: async ({ method, params }: { method: string; params?: unknown[] }) => {
+        if (method === 'eth_requestAccounts' || method === 'eth_accounts') return [injectedAccount];
+        if (method === 'eth_chainId') return '0x8f';
+        if (method === 'wallet_switchEthereumChain') return null;
+        if (method === 'wallet_requestPermissions') return [{ parentCapability: 'eth_accounts' }];
+        if (method === 'wallet_getPermissions') return [{ parentCapability: 'eth_accounts' }];
+        throw new Error(`Mock provider does not implement ${method}: ${JSON.stringify(params ?? [])}`);
+      },
+      on: (event: string, listener: (...args: unknown[]) => void) => {
+        const handlers = listeners.get(event) ?? new Set(); handlers.add(listener); listeners.set(event, handlers);
+      },
+      removeListener: (event: string, listener: (...args: unknown[]) => void) => listeners.get(event)?.delete(listener),
+    };
+    Object.defineProperty(window, 'ethereum', { configurable: true, value: provider });
+  }, { injectedAccount: account });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/desk');
+  await page.locator('#main-content').getByRole('button', { name: 'Connect wallet' }).click();
+  await expect(page.locator('#main-content').getByText('0x7Db9…E937')).toBeVisible();
+  await page.getByRole('slider', { name: 'Target MON percentage' }).fill('100');
+  await expect(page.getByRole('heading', { name: 'A MON buy is suggested.' })).toBeVisible({ timeout: 20_000 });
+  await page.getByRole('button', { name: 'Prepare buy' }).click();
+  await expect(page.getByText('Exact approval required')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText('Pending approval')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Mainnet execution disabled' })).toBeDisabled();
+});

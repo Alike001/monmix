@@ -6,17 +6,18 @@ import { buildReadOnlyReview, deserializeMarketSnapshot, MONAD_MAINNET_CHAIN_ID,
 import { evaluateRebalance, formatAtoms, parseDecimalToAtoms, type ProposedAction } from '@monad-strategy/domain';
 import { ConnectWallet } from '@/features/wallet/connect-wallet';
 import { NativeSellPreflight } from '@/features/execution/native-sell-preflight';
+import { NativeBuyPreflight } from '@/features/execution/native-buy-preflight';
 import { ALLOCATION_PRESETS, allocationBps, marketMinimumQuoteAtoms, presetForTarget } from '@/lib/allocation';
 import { formatCompactAtoms, formatRaw } from '@/lib/format';
 import { DEFAULT_STRATEGY_PREFERENCES, readStrategyPreferences, saveStrategyPreferences, type StrategyPresetId } from '@/lib/strategy-preferences';
 import { useMarket } from '@/lib/use-market';
 import { getWalletReadiness } from '@/lib/wallet-state';
 
-type BalanceState = { kind: 'idle' } | { kind: 'error'; owner: string; message: string } | { kind: 'ready'; owner: string; mon: bigint; usdc: bigint };
+type BalanceState = { kind: 'idle' } | { kind: 'error'; owner: string; message: string } | { kind: 'ready'; owner: string; mon: bigint; usdc: bigint; observedAtSeconds: bigint };
 type Snapshot = ReturnType<typeof deserializeMarketSnapshot>;
 type StrategyResult =
   | { kind: 'blocked'; title: string; detail: string; code: string }
-  | { kind: 'decision'; decision: ProposedAction; baseValueQuoteAtoms: bigint; cashQuoteAtoms: bigint; allocationBps: bigint; minimumBaseAtoms: bigint; minimumQuoteAtoms: bigint; review: ReturnType<typeof buildReadOnlyReview> | null; snapshot: Snapshot };
+  | { kind: 'decision'; decision: ProposedAction; baseValueQuoteAtoms: bigint; cashQuoteAtoms: bigint; allocationBps: bigint; minimumBaseAtoms: bigint; minimumQuoteAtoms: bigint; review: ReturnType<typeof buildReadOnlyReview> | null; snapshot: Snapshot; walletObservedAtSeconds: bigint };
 
 export function AllocationPanel() {
   const connection = useConnection();
@@ -50,7 +51,7 @@ export function AllocationPanel() {
       .then(async (response) => {
         const payload = (await response.json()) as { ok: true; mon: string; usdc: string } | { ok: false; error: string };
         if (!response.ok || !payload.ok) throw new Error(payload.ok ? 'Balance read failed' : payload.error);
-        setBalances({ kind: 'ready', owner, mon: BigInt(payload.mon), usdc: BigInt(payload.usdc) });
+        setBalances({ kind: 'ready', owner, mon: BigInt(payload.mon), usdc: BigInt(payload.usdc), observedAtSeconds: BigInt(Math.floor(Date.now() / 1000)) });
       }).catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') return;
         setBalances({ kind: 'error', owner, message: error instanceof Error ? error.message : 'Balance read failed' });
@@ -83,7 +84,7 @@ export function AllocationPanel() {
         lastPriceUpdateSeconds: snapshot.observedAtSeconds, maxPriceAgeSeconds: 30n, paused,
       });
       const review = decision.status === 'REVIEW' ? buildReadOnlyReview(snapshot, decision.side, decision.quoteNotional) : null;
-      return { kind: 'decision', decision, baseValueQuoteAtoms, cashQuoteAtoms, allocationBps: currentAllocationBps, minimumBaseAtoms, minimumQuoteAtoms, review, snapshot };
+      return { kind: 'decision', decision, baseValueQuoteAtoms, cashQuoteAtoms, allocationBps: currentAllocationBps, minimumBaseAtoms, minimumQuoteAtoms, review, snapshot, walletObservedAtSeconds: balances.observedAtSeconds };
     } catch (error) {
       return { kind: 'blocked', code: 'INVALID_INPUT', title: 'Check these strategy settings.', detail: error instanceof Error ? error.message : 'A setting could not be read.' };
     }
@@ -114,7 +115,9 @@ export function AllocationPanel() {
         <div className="preference-actions"><button className="button small secondary" type="button" onClick={() => { saveStrategyPreferences(window.localStorage, { preset, target, trigger, perActionCap, dailyCap, minimumTrade, paused }); setSavedMessage('Saved in this browser.'); }}>Save strategy</button><span aria-live="polite">{savedMessage || 'Nothing is synced onchain or between devices.'}</span></div>
       </section>
     </div><DecisionCard result={result} target={target} minimumTrade={minimumTrade} />
-    {result.kind === 'decision' && result.decision.status === 'REVIEW' && result.decision.side === 'SELL_BASE' && result.review?.status === 'REVIEW' && connection.address ? <NativeSellPreflight account={connection.address} baseAmountAtoms={result.review.estimatedBaseAtoms} /> : null}
+    {result.kind === 'decision' && result.decision.status === 'REVIEW' && result.review?.status === 'REVIEW' && connection.address ? result.decision.side === 'SELL_BASE'
+      ? <NativeSellPreflight account={connection.address} baseAmountAtoms={result.review.estimatedBaseAtoms} />
+      : <NativeBuyPreflight account={connection.address} quoteAmountAtoms={result.review.estimatedQuoteAtoms} /> : null}
     </div>
   </div>;
 }
@@ -141,19 +144,21 @@ function decisionExplanation(decision: ProposedAction): string {
     if (decision.code === 'BELOW_MINIMUM') return 'The adjustment is below the minimum you chose in advanced settings.';
     return `The strategy stopped this adjustment (${decision.code.replaceAll('_', ' ').toLowerCase()}).`;
   }
-  return decision.side === 'SELL_BASE' ? 'You hold more MON than your target. A bounded MON sell would move the portfolio closer.' : 'You hold less MON than your target. A MON buy would move the portfolio closer, but buying remains read-only in this phase.';
+  return decision.side === 'SELL_BASE' ? 'You hold more MON than your target. A bounded MON sell would move the portfolio closer.' : 'You hold less MON than your target. A protected USDC-to-MON buy would move the portfolio closer.';
 }
 
 function DecisionCard({ result, target, minimumTrade }: { result: StrategyResult; target: string; minimumTrade: string }) {
   if (result.kind === 'blocked') return <aside className="card panel decision"><div className="decision-status"><span className="eyebrow">Your next step</span><span className="decision-code block">BLOCK</span></div><h2>{result.title}</h2><p>{result.detail}</p><div className="decision-next">No transaction can be prepared in this state.</div></aside>;
   const { decision, review, snapshot } = result;
+  const reviewSide = decision.status === 'REVIEW' ? decision.side : null;
   const headline = decision.status === 'WAIT' ? 'Your allocation is on track.' : decision.status === 'BLOCK' ? 'This adjustment is not available.' : decision.side === 'BUY_BASE' ? 'A MON buy is suggested.' : 'A MON sell is ready to inspect.';
   return <aside className="card panel decision"><div className="decision-status"><span className="eyebrow">Your next step</span><span className={`decision-code ${decision.status.toLowerCase()}`}>{decision.status}</span></div><h2>{headline}</h2><p>{decisionExplanation(decision)}</p><div className="decision-allocation"><span>Current MON <strong>{formatAtoms(result.allocationBps, 2, 1)}%</strong></span><b>→</b><span>Target MON <strong>{target}%</strong></span></div>
-    <div className="review-metrics"><div className="review-metric"><span>Difference from target</span><strong>{formatAtoms(decision.driftBps < 0n ? -decision.driftBps : decision.driftBps, 2, 2)}%</strong></div>{decision.status === 'REVIEW' ? <div className="review-metric"><span>Proposed trade value</span><strong>${formatCompactAtoms(decision.quoteNotional, 6, 2)}</strong></div> : null}{review?.status === 'REVIEW' ? <><div className="review-metric important"><span>Proposed MON amount</span><strong>{formatCompactAtoms(review.estimatedBaseAtoms, 18, 4)} MON</strong></div><div className="review-metric"><span>Worst visible price</span><strong>${formatRaw(review.worstPriceRaw, snapshot.params.pricePrecision, 6)}</strong></div><div className="review-metric"><span>Order-book levels used</span><strong>{review.levelsUsed}</strong></div></> : null}</div>
+    <div className="strategy-health" aria-label="Strategy health"><div><span>Current allocation</span><strong>{formatAtoms(result.allocationBps, 2, 1)}% MON</strong></div><div><span>Desired allocation</span><strong>{target}% MON</strong></div><div><span>Wallet observed</span><strong>{Math.max(0, Number(result.snapshot.observedAtSeconds + result.snapshot.ageSeconds - result.walletObservedAtSeconds))}s ago</strong></div><div><span>Market observed</span><strong>{result.snapshot.ageSeconds}s old</strong></div><div><span>Adjustment health</span><strong>{review?.status === 'REVIEW' ? 'Meets visible market rules' : decision.status === 'WAIT' ? 'No adjustment needed' : 'Unavailable now'}</strong></div></div>
+    <div className="review-metrics"><div className="review-metric"><span>Difference from target</span><strong>{formatAtoms(decision.driftBps < 0n ? -decision.driftBps : decision.driftBps, 2, 2)}%</strong></div>{decision.status === 'REVIEW' ? <div className="review-metric"><span>{reviewSide === 'BUY_BASE' ? 'USDC to spend' : 'Proposed trade value'}</span><strong>${formatCompactAtoms(decision.quoteNotional, 6, 2)}</strong></div> : null}{review?.status === 'REVIEW' ? <><div className="review-metric important"><span>{reviewSide === 'BUY_BASE' ? 'Estimated MON received' : 'Proposed MON amount'}</span><strong>{formatCompactAtoms(review.estimatedBaseAtoms, 18, 4)} MON</strong></div><div className="review-metric"><span>Worst visible price</span><strong>${formatRaw(review.worstPriceRaw, snapshot.params.pricePrecision, 6)}</strong></div><div className="review-metric"><span>Order-book levels used</span><strong>{review.levelsUsed}</strong></div></> : null}</div>
     <div className="market-requirement"><span>Kuru minimum order</span><strong>{formatCompactAtoms(result.minimumBaseAtoms, 18, 0)} MON</strong><small>About ${formatCompactAtoms(result.minimumQuoteAtoms, 6, 2)} at the current midpoint</small></div>
     {parseDecimalToAtoms(minimumTrade, 6) > result.minimumQuoteAtoms ? <div className="notice">Your “ignore below” setting (${minimumTrade}) is above Kuru’s current minimum value. It may refuse a valid 200 MON order. Lower it to let the venue minimum decide.</div> : null}
     {review?.status === 'BLOCK' && review.code === 'BELOW_MARKET_MINIMUM' ? <div className="notice danger"><strong>Too small for Kuru.</strong><br />This proposal is below 200 MON. Wait for more drift or change the target/cap; the desk will not work around the venue minimum.</div> : null}
     {review?.status === 'BLOCK' && review.code === 'INSUFFICIENT_DEPTH' ? <div className="notice danger"><strong>Not enough visible liquidity.</strong><br />The order book cannot fill the whole proposal now, so no transaction is prepared.</div> : null}
-    <div className="decision-next">{decision.status === 'REVIEW' && decision.side === 'SELL_BASE' && review?.status === 'REVIEW' ? 'Next: run the exact Kuru simulation below.' : 'No wallet action is requested.'}</div>
+    <div className="decision-next">{decision.status === 'REVIEW' && review?.status === 'REVIEW' ? `Next: prepare the protected Kuru ${decision.side === 'BUY_BASE' ? 'buy' : 'sell'} below.` : 'No wallet action is requested.'}</div>
   </aside>;
 }

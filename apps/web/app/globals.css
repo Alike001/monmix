@@ -225,6 +225,10 @@ button { cursor: pointer; }
 .decision-allocation span { display: grid; gap: 4px; }
 .decision-allocation span:last-child { text-align: right; }
 .decision-allocation strong { font-family: ui-monospace, monospace; font-size: 16px; }
+.strategy-health { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; overflow: hidden; margin: 18px 0; border: 1px solid var(--line); border-radius: 12px; background: var(--line); }
+.strategy-health > div { display: grid; gap: 5px; padding: 12px; background: #f7f5ee; }
+.strategy-health span { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+.strategy-health strong { font-size: 12px; line-height: 1.35; }
 .review-metric.important { margin: 0 -10px; padding: 10px; border: 0; border-radius: 9px; background: var(--acid); color: var(--ink); }
 .review-metric.important span { color: #3d471e; }
 .market-requirement { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 18px 0; padding: 15px; border: 1px solid var(--line); border-radius: 12px; }
@@ -267,6 +271,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, summary:focus-visibl
 .status-confirmed { border-color: #bcd77f; background: #eff8d9; color: #3f5815; }
 .status-reverted, .status-rejected { border-color: #efc0ba; background: #fff0ee; color: #7e3029; }
 .status-unresolved, .status-broadcast, .status-awaiting_wallet { border-color: #ecd4a9; background: #fff7e7; color: #725019; }
+.status-prepared { border-color: #c7cfbd; background: #f0f2eb; color: #465142; }
 .activity-time { margin: 18px 0 0; color: var(--muted); font-size: 12px; }
 .activity-record-head p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
 .activity-outcome { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; overflow: hidden; margin-bottom: 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--line); }
@@ -337,6 +342,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, summary:focus-visibl
   .balance { padding: 14px; }
   .balance strong { font-size: 18px; }
   .preset-grid { grid-template-columns: 1fr; }
+  .strategy-health { grid-template-columns: 1fr; }
   .preset-card { min-height: 0; }
   .desk-steps { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .desk-steps span { padding: 10px 3px; font-size: 9px; letter-spacing: 0; }
