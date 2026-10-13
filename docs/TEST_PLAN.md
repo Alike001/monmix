@@ -9,7 +9,9 @@
 - Fresh, stale and zero-liquidity classification.
 - Wrong quote decimals and wrong price precision rejection.
 - Read-only review, Kuru market minimum, insufficient depth and stale refusal.
-- Wallet disconnected, wrong-network and ready state mapping.
+- Wallet disconnected, verifying, wrong-network, provider/account mismatch and ready state mapping.
+- Multiple EIP-6963 provider selection, rejected network switching, account changes and stale-preparation clearing.
+- Zero MON plus zero USDC renders an empty portfolio rather than an in-band allocation.
 - 199.9999999999 / 200 MON minimum boundary and exact size/token precision conversion.
 - Slippage floor rounding, protected fill-or-kill arguments and failed simulation classification.
 - Changed proxy implementation and runtime code refusal.

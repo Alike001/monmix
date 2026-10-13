@@ -21,7 +21,7 @@ import {
   walletFailureStatus,
   isProtectedTradeOutcome,
 } from '@/lib/transaction-journal';
-import { assertWalletExecutionContext } from '@/lib/wallet-state';
+import { assertWalletExecutionContext, readProviderWalletState } from '@/lib/wallet-state';
 import { assertSellRevalidation } from '@/lib/execution-review';
 import { useNowSeconds } from '@/lib/use-now-seconds';
 
@@ -97,7 +97,8 @@ export function NativeSellPreflight({ account, baseAmountAtoms }: { account: Add
       }
       const fresh = await requestPreflight();
       const now = BigInt(Math.floor(Date.now() / 1000));
-      assertWalletExecutionContext(connection, fresh, now);
+      const provider = await readProviderWalletState(connection.status === 'connected' ? connection.connector : undefined);
+      assertWalletExecutionContext(connection, fresh, now, provider);
       assertSellRevalidation(state.preparation, fresh);
       const journal = beginJournalRecord(window.localStorage, {
         fingerprint: fresh.fingerprint,

@@ -11,7 +11,7 @@ import { quoteFreshness } from '@/lib/allocation';
 import { formatCompactAtoms } from '@/lib/format';
 import { publicClient } from '@/lib/public-client';
 import { beginJournalRecord, isProtectedTradeOutcome, portfolioAllocationBps, recordPreparedAction, updateJournalRecord, walletFailureStatus } from '@/lib/transaction-journal';
-import { assertWalletExecutionContext } from '@/lib/wallet-state';
+import { assertWalletExecutionContext, readProviderWalletState } from '@/lib/wallet-state';
 import { assertBuyRevalidation } from '@/lib/execution-review';
 import { useNowSeconds } from '@/lib/use-now-seconds';
 
@@ -64,7 +64,8 @@ export function NativeBuyPreflight({ account, quoteAmountAtoms }: { account: Add
     try {
       if (BigInt(state.preparation.expiresAtSeconds) <= BigInt(Math.floor(Date.now() / 1000))) throw new Error('The reviewed approval expired. Prepare it again.');
       const fresh = await requestPreflight();
-      assertWalletExecutionContext(connection, fresh);
+      const provider = await readProviderWalletState(connection.status === 'connected' ? connection.connector : undefined);
+      assertWalletExecutionContext(connection, fresh, undefined, provider);
       assertBuyRevalidation(state.preparation, fresh);
       if (!fresh.approvalRequired) throw new Error('Allowance already covers this buy. Simulate again before trading.');
       const journal = beginJournalRecord(window.localStorage, {
@@ -101,7 +102,8 @@ export function NativeBuyPreflight({ account, quoteAmountAtoms }: { account: Add
     try {
       if (BigInt(state.preparation.expiresAtSeconds) <= BigInt(Math.floor(Date.now() / 1000))) throw new Error('The reviewed buy expired. Prepare it again.');
       const fresh = await requestPreflight();
-      assertWalletExecutionContext(connection, fresh);
+      const provider = await readProviderWalletState(connection.status === 'connected' ? connection.connector : undefined);
+      assertWalletExecutionContext(connection, fresh, undefined, provider);
       assertBuyRevalidation(state.preparation, fresh);
       if (fresh.approvalRequired || !fresh.exactBuySimulationPassed) throw new Error('Exact allowance and buy simulation are required again.');
       const journal = beginJournalRecord(window.localStorage, {

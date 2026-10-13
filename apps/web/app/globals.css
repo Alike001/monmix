@@ -159,6 +159,10 @@ button { cursor: pointer; }
 .wallet-control { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-family: ui-monospace, monospace; font-size: 12px; }
 .wallet-control small { width: 100%; max-width: 260px; color: var(--red); }
 .wallet-control.wrong { color: var(--red); }
+.wallet-control .wallet-ready, .wallet-control .wallet-checking { color: var(--muted); }
+.wallet-identity, .wallet-choice { font-weight: 800; }
+.wallet-select-label { display: grid; gap: 4px; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.wallet-select-label select { min-width: 156px; padding: 8px 30px 8px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--panel); color: var(--ink); font: 600 12px ui-monospace, monospace; text-transform: none; }
 .balance-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .balance { padding: 20px; border: 1px solid var(--line); border-radius: 14px; }
 .balance strong { display: block; margin-top: 8px; font-family: ui-monospace, monospace; font-size: 24px; }

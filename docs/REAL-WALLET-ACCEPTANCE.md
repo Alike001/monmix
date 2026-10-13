@@ -14,12 +14,13 @@ Status: automated provider behavior is covered; owner-attended MetaMask-compatib
 
 | Case | Steps | Required result | Current evidence |
 | --- | --- | --- | --- |
+| Multiple extensions | Open `/desk` with at least two EIP-6963 wallets | Each wallet is named and only the explicitly selected provider connects | Automated multi-provider coverage; real extensions pending |
 | Provider discovery | Open `/desk` with and without the extension | Missing provider is explained; detected provider offers Connect | Automated browser mock; real extension pending |
-| Account selection | Select an account in the wallet | UI shows the selected shortened address and only that address's balances | Automated mock; real extension pending |
-| Correct network | Connect on chain 143 | Portfolio becomes readable without signature | Automated mock/read-only RPC; real extension pending |
+| Account selection | Select an account in the chosen wallet | UI names that wallet, shows its shortened address, and reads balances only after direct `eth_accounts` agrees with wagmi | Automated provider-change coverage; real extension pending |
+| Correct network | Connect on chain 143 | Direct provider `eth_chainId`, wagmi chain and Monad RPC context agree before the portfolio becomes readable | Automated mock/read-only RPC; real extension pending |
 | Wrong network | Connect on another chain | No recommendation from mixed-chain balances; Switch to Monad is offered | Unit/browser behavior; real extension pending |
 | Chain switch | Approve `wallet_switchEthereumChain` to 143 | UI transitions to connected Monad state and reloads balances | Mock plan only; real extension pending |
-| Reject chain switch | Reject the request | Wrong-network refusal remains; no stale recommendation or write | Manual pending |
+| Reject chain switch | Reject the request | Wrong-network refusal remains; no stale recommendation, Monad balance display or write | Automated rejection coverage; real extension pending |
 | Balance accuracy | Compare displayed MON/USDC with wallet and Monad RPC | Exact atom reads agree after formatting | Live RPC adapter verified; owner account pending |
 | Market and allocation | Compare `/markets`, wallet amounts, total value and MON percentage against independent read-only RPC calculations | Fresh Kuru values and bigint allocation agree; unavailable data never becomes a recommendation | Adapter/browser coverage; owner account pending |
 | Strategy selection | Select Balanced, MON forward, USDC buffer and Custom; save and reload | Target changes are understandable and persist only in this browser | Browser coverage; real extension pending |
@@ -35,6 +36,7 @@ Status: automated provider behavior is covered; owner-attended MetaMask-compatib
 ## Evidence classification
 
 - A mocked EIP-1193 provider proves application state handling, not extension compatibility.
+- Mocked EIP-6963 discovery proves explicit selection behavior, not compatibility with the owner's installed extension versions.
 - Public RPC balance and contract reads prove chain integration, not wallet acceptance.
 - Real-extension acceptance requires the owner to operate the extension and observe the result. Until that happens, the release notes must say **pending**, not passed.
 - No signature, approval or transaction is required—or permitted—for the Phase 5A acceptance session.

@@ -43,7 +43,7 @@ test('public routes load without missing same-origin page resources or runtime e
     }
   });
   for (const route of routes) {
-    await page.goto(route, { waitUntil: 'networkidle' });
+    await page.goto(route, { waitUntil: 'load' });
     await expect(page.locator('main h1').first()).toBeVisible();
   }
   expect(failures).toEqual([]);
@@ -155,6 +155,90 @@ test('prepared buy is clearly unsigned and distinct from a completed trade', asy
   await expect(page.getByRole('link', { name: /View transaction/ })).toHaveCount(0);
 });
 
+test('multiple injected wallets require selection and a rejected network switch stays closed', async ({ page }) => {
+  const account = '0x1111111111111111111111111111111111111111';
+  let balanceReads = 0;
+  page.on('request', (request) => { if (request.url().includes('/api/balances')) balanceReads += 1; });
+  await page.addInitScript(({ injectedAccount }) => {
+    const createProvider = (chainId: string, rejectSwitch: boolean) => {
+      const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
+      return {
+        request: async ({ method }: { method: string }) => {
+          if (method === 'eth_requestAccounts' || method === 'eth_accounts') return [injectedAccount];
+          if (method === 'eth_chainId') return chainId;
+          if (method === 'wallet_switchEthereumChain') {
+            if (rejectSwitch) throw Object.assign(new Error('User rejected the request.'), { code: 4001 });
+            return null;
+          }
+          if (method === 'wallet_requestPermissions' || method === 'wallet_getPermissions') return [{ parentCapability: 'eth_accounts' }];
+          throw new Error(`Unsupported mock method ${method}`);
+        },
+        on: (event: string, listener: (...args: unknown[]) => void) => {
+          const handlers = listeners.get(event) ?? new Set(); handlers.add(listener); listeners.set(event, handlers);
+        },
+        removeListener: (event: string, listener: (...args: unknown[]) => void) => listeners.get(event)?.delete(listener),
+      };
+    };
+    const wallets = [
+      { info: { uuid: '350670db-19fa-4704-a166-e52e178b59d2', name: 'MetaMask', icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>', rdns: 'io.metamask' }, provider: Object.assign(createProvider('0x1', true), { isMetaMask: true }) },
+      { info: { uuid: '8c1db2fa-790f-4a74-9b5b-3f4692f49f42', name: 'Rabby Wallet', icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg"/>', rdns: 'io.rabby' }, provider: Object.assign(createProvider('0x8f', false), { isRabby: true }) },
+    ];
+    const announce = () => wallets.forEach((detail) => window.dispatchEvent(new CustomEvent('eip6963:announceProvider', { detail })));
+    window.addEventListener('eip6963:requestProvider', announce);
+    window.setTimeout(announce, 0);
+  }, { injectedAccount: account });
+
+  await page.goto('/desk');
+  const desk = page.locator('#main-content');
+  const picker = desk.getByRole('combobox', { name: 'Choose injected wallet' });
+  await expect(picker).toBeVisible();
+  await expect(desk.getByRole('button', { name: 'Choose a wallet' })).toBeDisabled();
+  await picker.selectOption({ label: 'MetaMask' });
+  await desk.getByRole('button', { name: 'Connect MetaMask' }).click();
+  await expect(desk.getByText(/WRONG NETWORK.*MetaMask/)).toBeVisible();
+  await expect(desk.getByText('Switch to Monad mainnet.')).toBeVisible();
+  await desk.getByRole('button', { name: 'Switch to Monad' }).click();
+  await expect(desk.getByText(/User rejected/i)).toBeVisible();
+  await expect(desk.getByText(/WRONG NETWORK.*MetaMask/)).toBeVisible();
+  expect(balanceReads).toBe(0);
+});
+
+test('a verified empty Monad wallet is not described as an on-track allocation', async ({ page }) => {
+  const account = '0x1111111111111111111111111111111111111111';
+  const market = '0x065C9d28E428A0db40191a54d33d5b7c71a9C394';
+  const usdc = '0x754704Bc059F8C67012fEd69BC8A327a5aafb603';
+  await page.route('**/api/market', (route) => route.fulfill({ json: { ok: true, snapshot: {
+    chainId: 143, marketAddress: market,
+    params: { pricePrecision: '100000000', sizePrecision: '10000000000', baseAssetAddress: '0x0000000000000000000000000000000000000000', baseAssetDecimals: '18', quoteAssetAddress: usdc, quoteAssetDecimals: '6', tickSize: '100', minSize: '2000000000000', maxSize: '2000000000000000000', takerFeeBps: '0', makerFeeBps: '0' },
+    book: { blockNumber: '123', bids: [{ priceRaw: '2400000', sizeRaw: '1000000000000000' }], asks: [{ priceRaw: '2410000', sizeRaw: '1000000000000000' }] },
+    bestBidX18: '24000000000000000', bestAskX18: '24100000000000000', midpointX18: '24050000000000000', observedAtSeconds: '1000', ageSeconds: '1', status: 'LIVE',
+  } } }));
+  await page.route('**/api/balances?**', (route) => route.fulfill({ json: { ok: true, mon: '0', usdc: '0' } }));
+  await page.addInitScript(({ injectedAccount }) => {
+    const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
+    const provider = {
+      request: async ({ method }: { method: string }) => {
+        if (method === 'eth_requestAccounts' || method === 'eth_accounts') return [injectedAccount];
+        if (method === 'eth_chainId') return '0x8f';
+        if (method === 'wallet_requestPermissions' || method === 'wallet_getPermissions') return [{ parentCapability: 'eth_accounts' }];
+        throw new Error(`Unsupported mock method ${method}`);
+      },
+      on: (event: string, listener: (...args: unknown[]) => void) => {
+        const handlers = listeners.get(event) ?? new Set(); handlers.add(listener); listeners.set(event, handlers);
+      },
+      removeListener: (event: string, listener: (...args: unknown[]) => void) => listeners.get(event)?.delete(listener),
+    };
+    Object.defineProperty(window, 'ethereum', { configurable: true, value: provider });
+  }, { injectedAccount: account });
+
+  await page.goto('/desk');
+  await page.locator('#main-content').getByRole('button', { name: 'Connect wallet' }).click();
+  await expect(page.getByRole('heading', { name: 'This portfolio is empty.' })).toBeVisible();
+  await expect(page.getByText(/No MON or USDC was found/)).toBeVisible();
+  await expect(page.getByText('Your allocation is on track.')).toHaveCount(0);
+  await expect(page.getByText('Fund wallet to begin')).toBeVisible();
+});
+
 test('mocked injected wallet reaches a protected buy preparation without enabling a write', async ({ page }) => {
   const account = '0x7Db99F225Af7A1A21b7b6468Ed28F4bC60FbE937';
   const market = '0x065C9d28E428A0db40191a54d33d5b7c71a9C394';
@@ -176,10 +260,11 @@ test('mocked injected wallet reaches a protected buy preparation without enablin
   } } }));
   await page.addInitScript(({ injectedAccount }) => {
     const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
+    let activeAccount = injectedAccount;
     const provider = {
       isMetaMask: true,
       request: async ({ method, params }: { method: string; params?: unknown[] }) => {
-        if (method === 'eth_requestAccounts' || method === 'eth_accounts') return [injectedAccount];
+        if (method === 'eth_requestAccounts' || method === 'eth_accounts') return [activeAccount];
         if (method === 'eth_chainId') return '0x8f';
         if (method === 'wallet_switchEthereumChain') return null;
         if (method === 'wallet_requestPermissions') return [{ parentCapability: 'eth_accounts' }];
@@ -191,6 +276,10 @@ test('mocked injected wallet reaches a protected buy preparation without enablin
       },
       removeListener: (event: string, listener: (...args: unknown[]) => void) => listeners.get(event)?.delete(listener),
     };
+    Object.assign(window, { __monmixSwitchAccount: (next: string) => {
+      activeAccount = next;
+      for (const listener of listeners.get('accountsChanged') ?? []) listener([next]);
+    } });
     Object.defineProperty(window, 'ethereum', { configurable: true, value: provider });
   }, { injectedAccount: account });
   await page.setViewportSize({ width: 390, height: 844 });
@@ -203,4 +292,8 @@ test('mocked injected wallet reaches a protected buy preparation without enablin
   await expect(page.getByText('Exact approval required')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText('Pending approval')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Mainnet execution disabled' })).toBeDisabled();
+  const nextAccount = '0x2222222222222222222222222222222222222222';
+  await page.evaluate((next) => (window as unknown as { __monmixSwitchAccount(next: string): void }).__monmixSwitchAccount(next), nextAccount);
+  await expect(page.locator('#main-content').getByText('0x2222…2222')).toBeVisible();
+  await expect(page.getByText('Exact approval required')).toHaveCount(0);
 });

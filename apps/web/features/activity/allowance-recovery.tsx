@@ -13,7 +13,7 @@ import { formatCompactAtoms } from '@/lib/format';
 import { publicClient } from '@/lib/public-client';
 import { assertRevocationRevalidation } from '@/lib/execution-review';
 import { beginJournalRecord, recordPreparedAction, updateJournalRecord, walletFailureStatus } from '@/lib/transaction-journal';
-import { assertWalletExecutionContext } from '@/lib/wallet-state';
+import { assertWalletExecutionContext, readProviderWalletState } from '@/lib/wallet-state';
 import { useNowSeconds } from '@/lib/use-now-seconds';
 import { quoteFreshness } from '@/lib/allocation';
 
@@ -68,7 +68,8 @@ export function AllowanceRecovery({ account, onJournalChange }: { account: Addre
     inFlight.current = true; let id: string | undefined; let hash: Hex | undefined;
     try {
       const fresh = await requestPreparation();
-      assertWalletExecutionContext(connection, fresh);
+      const provider = await readProviderWalletState(connection.status === 'connected' ? connection.connector : undefined);
+      assertWalletExecutionContext(connection, fresh, undefined, provider);
       assertRevocationRevalidation(state.value, fresh);
       const journal = beginJournalRecord(window.localStorage, { fingerprint: fresh.fingerprint, action: 'REVOKE_USDC', account: fresh.account, chainId: 143, marketAddress: fresh.spender, baseAmountAtoms: '0', minimumQuoteAtoms: '0', approvalAmountAtoms: '0', approvalSpender: fresh.spender });
       id = journal.id; onJournalChange(); setMessage('Awaiting a separate wallet confirmation to set the Kuru USDC allowance to zero.');
