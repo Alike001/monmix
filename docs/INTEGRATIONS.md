@@ -70,6 +70,12 @@ The buy preparation has two honest stages:
 1. With insufficient allowance, verify the quote, 200 MON product floor, protected output, token balance, exact allowance deficit and exact approval simulation. Do not claim the exact account-bound buy simulation passed.
 2. After a separately confirmed exact approval, create a new preparation and simulate/estimate the exact account-bound FOK buy. Only that state can become transaction-ready when the execution gate is separately enabled.
 
+If approval succeeds but the buy is abandoned or fails, the allowance may remain. The Activity page can read `allowance(owner, Kuru market)` from the verified six-decimal USDC contract. When it is nonzero, it can prepare and simulate the exact recovery call `approve(Kuru market, 0)`. Revocation is its own journal action and wallet confirmation; no trade follows it and no revocation is sent automatically.
+
+## Execution-time freshness boundary
+
+The direct buy and sell ABI has no deadline argument. The 20-second browser expiry is therefore a pre-wallet control, not an onchain guarantee. A final preparation must keep the same account, market and calldata identity; it may not reduce the reviewed output floor or increase the reviewed gas ceiling. After the wallet request opens, a delayed confirmation can still execute against later state subject only to FOK and `minAmountOut`. The owner must reject a request that was not reviewed and confirmed immediately, then prepare a new one.
+
 ## Reproduce without sending a transaction
 
 ```bash

@@ -11,7 +11,7 @@ The user-confirmed native MON sell and exact-approval USDC-to-MON lifecycles are
 3. The user sets a MON target, drift threshold, per-review cap, daily advisory budget and minimum review size.
 4. Integer-only policy math returns `WAIT`, `BLOCK`, or `REVIEW`; adjustments under Kuru's declared 200 MON minimum are refused.
 5. An eligible sell is simulated exactly. A buy first verifies an exact USDC approval requirement; after a separately confirmed allowance, the exact protected buy can be simulated. Both use bigint output protection, fill-or-kill, gas, balance, proxy and code-hash checks.
-6. `/activity` separates prepared, rejected, broadcast, confirmed, reverted, unresolved and reload-reconciled records. No simulation is presented as a completed trade.
+6. `/activity` separates prepared, rejected, broadcast, confirmed, reverted, unresolved and reload-reconciled records. It can also read a recorded account's live Kuru USDC allowance and prepare a separately confirmed zero-allowance recovery. No simulation is presented as a completed trade.
 
 ## Run locally
 
@@ -36,6 +36,7 @@ pnpm test:live
 pnpm typecheck
 pnpm lint
 pnpm build
+pnpm test:e2e
 ```
 
 `pnpm test` is deterministic and does not require a network. `pnpm test:live` performs public `eth_call` and block reads only; it never asks for a key or sends a transaction.
@@ -73,9 +74,10 @@ OpenAI Codex was used for repository research, architecture, implementation, tes
 
 - Mainnet execution is off unless an owner-reviewed build explicitly sets `NEXT_PUBLIC_ENABLE_MAINNET_EXECUTION=true`.
 - The packed L2 interface reflects the verified deployed legacy market shape; the newer Kuru TS SDK uses a different ABI generation and is currently `UNLICENSED`.
-- The direct sell has no onchain deadline; the app uses a short client preparation lifetime and mandatory re-simulation, which cannot eliminate wallet-confirmation latency.
+- Kuru's direct buy and sell calls have no onchain deadline. The app expires the browser review after 20 seconds, recreates the preparation before opening the wallet, and refuses a fresh result whose output floor or gas ceiling worsened. Once the request is open in the wallet, the browser timer is not enforceable by the contract; reject a delayed request and prepare again.
 - Strategy preferences and the daily budget are local advisory data, not contract-enforced restrictions.
 - A buy needs two explicit wallet confirmations: an exact-amount USDC approval and, after a fresh preparation, the Kuru order. Neither is enabled in the default build and neither has funded-mainnet receipt evidence yet.
+- An abandoned or failed buy can leave exact residual allowance. Activity reads the live allowance and can prepare `approve(Kuru market, 0)` as a distinct, execution-gated action; it never submits revocation silently.
 - Automatic monitoring while the browser is closed is a documented feasibility design only; automation and independently enforced caps remain unavailable.
 
-See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for raw read evidence and [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) for the Milestone 1 safety boundary.
+See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for raw read evidence, [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) for the release safety boundary, and [docs/JUDGE-QUICKSTART.md](docs/JUDGE-QUICKSTART.md) for the shortest review path.

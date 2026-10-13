@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "A read-only Monad portfolio strategy desk using Kuru market data.",
+  "description": "An owner-controlled Monad portfolio strategy desk with protected Kuru trade preparation.",
   "packageManager": "pnpm@10.34.5",
   "scripts": {
     "dev": "pnpm --filter @monad-strategy/web dev",

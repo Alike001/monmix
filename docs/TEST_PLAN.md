@@ -17,12 +17,15 @@
 - Buy quote-unit normalization, simulated-output minimum boundary and bigint price impact.
 - Exact approval event identity/owner/spender/amount checks; approval and trade remain separate records.
 - Wallet rejection, duplicate active action, prepared/hash persistence and journal reload.
+- Serialization across new-block fingerprints and malformed local-journal address rejection.
+- Reviewed-to-fresh monotonic safety: unchanged identity, non-decreasing output floor and non-increasing gas ceiling.
+- Residual allowance reads and exact zero-allowance revocation simulation/event proof.
 - Direction-aware fill reconciliation, balance deltas and resulting allocation evidence.
 - Malformed local strategy preferences and browser-only persistence.
 
 ## Integration check
 
-`pnpm test:live` verifies chain ID, deployed market call, params, packed depth, BBO agreement, proxy implementation/code hash, declared 200 MON minimum, exact sell simulation and gas estimation, plus buy quote units, USDC metadata/allowance, exact approval simulation and the pre-approval buy boundary through read-only RPC calls.
+`pnpm test:live` verifies chain ID, deployed market call, params, packed depth, BBO agreement, proxy implementation/code hash, declared 200 MON minimum, exact sell simulation and gas estimation, plus buy quote units, USDC metadata/allowance, exact approval simulation, the pre-approval buy boundary and a live residual-allowance read through read-only RPC calls.
 
 ## Release gates
 
@@ -39,3 +42,5 @@
 - Buy with sufficient allowance: run the exact protected FOK simulation and gas estimate before offering the still-disabled confirmation control.
 - Account switched after review: final revalidation refuses the old account.
 - Receipt missing after reload: record becomes unresolved and no transaction is retried.
+- Wallet review left open past browser expiry: reject it manually; the contract cannot enforce the client timer.
+- Approval succeeds but buy is abandoned: Activity reads the remaining allowance and prepares, but does not submit, a separate zero-allowance recovery.

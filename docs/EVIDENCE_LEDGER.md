@@ -18,5 +18,9 @@
 | 2026-10-13 | USDC identity, decimals, allowance and exact approval spender | Token reads, public-holder allowance read and approval simulation | Verified read-only |
 | 2026-10-13 | Direct buy does not enforce declared `minSize` | Pinned source and tiny read-only quote call; product blocks simulated output below 200 MON | Verified; app fails closed |
 | 2026-10-13 | Buy preparation against a public funded address | `pnpm test:live`: 5 USDC, allowance zero, exact approval simulation, >200 MON quoted output | Verified read-only; address is not controlled by project |
+| 2026-10-13 | Final pre-wallet revalidation cannot silently worsen reviewed output or gas | Deterministic revalidation tests for sell, approval, buy and revocation | Verified in code |
+| 2026-10-13 | Concurrent actions are serialized across changing preparation blocks | Browser-journal regression test using distinct fingerprints for the same account/market | Verified in code |
+| 2026-10-13 | Residual allowance is observable and zero-allowance recovery is exact | Live allowance read plus deterministic `approve(market, 0)` simulation test | Verified read-only; no approval or revocation sent |
+| 2026-10-13 | Funded MetaMask-compatible extension journey | Requires owner-attended browser session | Not yet performed; mocked EIP-1193 coverage is not real-wallet evidence |
 | Future | Funded approval and user-confirmed Kuru trade | Requires explicit owner approval and transaction receipts | Unverified on mainnet |
 | Future | Enforceable caps and automation | Requires independently enforced authorization and revocation | Unverified / not implemented |
