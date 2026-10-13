@@ -34,6 +34,15 @@ test('journal survives reload and persists transaction hashes', () => {
   assert.equal(reloaded[0]?.hash, `0x${'ab'.repeat(32)}`);
 });
 
+test('journal preserves verified received amount and before/after wallet evidence', () => {
+  const storage = memoryStorage();
+  const record = beginJournalRecord(storage, { ...input, expectedQuoteAtoms: '4838400', beforeMonAtoms: '1000000000000000000000', beforeUsdcAtoms: '473753' });
+  updateJournalRecord(storage, record.id, { status: 'CONFIRMED', receivedQuoteAtoms: '4838400', afterMonAtoms: '799900000000000000000', afterUsdcAtoms: '5312153' });
+  const restored = readJournal(storage)[0];
+  assert.equal(restored?.receivedQuoteAtoms, '4838400');
+  assert.equal(restored?.afterUsdcAtoms, '5312153');
+});
+
 test('wallet rejection is distinguished from unresolved failures', () => {
   assert.equal(walletFailureStatus({ code: 4001, message: 'Rejected' }), 'REJECTED');
   assert.equal(walletFailureStatus(new Error('RPC disconnected')), 'UNRESOLVED');

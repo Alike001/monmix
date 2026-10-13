@@ -8,7 +8,9 @@ import {
   KURU_DIRECT_ORDER_ABI,
   MONAD_MAINNET_CHAIN_ID,
   type NativeSellPreparationDto,
+  readWalletBalances,
 } from '@monad-strategy/kuru-adapter';
+import { quoteFreshness } from '@/lib/allocation';
 import { formatCompactAtoms } from '@/lib/format';
 import { publicClient } from '@/lib/public-client';
 import {
@@ -22,7 +24,7 @@ type PreflightState =
   | { kind: 'idle' }
   | { kind: 'loading' }
   | { kind: 'error'; code: string; message: string }
-  | { kind: 'ready'; preparation: NativeSellPreparationDto };
+  | { kind: 'ready'; preparation: NativeSellPreparationDto; receivedAtSeconds: bigint };
 
 const EXECUTION_ENABLED = process.env.NEXT_PUBLIC_ENABLE_MAINNET_EXECUTION === 'true';
 
@@ -56,7 +58,8 @@ export function NativeSellPreflight({ account, baseAmountAtoms }: { account: Add
     setState({ kind: 'loading' });
     setExecutionMessage('');
     try {
-      setState({ kind: 'ready', preparation: await requestPreflight() });
+      const preparation = await requestPreflight();
+      setState({ kind: 'ready', preparation, receivedAtSeconds: BigInt(Math.floor(Date.now() / 1000)) });
     } catch (error) {
       const failure = error as Error & { code?: string };
       setState({ kind: 'error', code: failure.code ?? 'PREFLIGHT_UNAVAILABLE', message: failure.message });
@@ -85,6 +88,9 @@ export function NativeSellPreflight({ account, baseAmountAtoms }: { account: Add
         marketAddress: fresh.marketAddress,
         baseAmountAtoms: fresh.baseAmountAtoms,
         minimumQuoteAtoms: fresh.minimumQuoteAtoms,
+        expectedQuoteAtoms: fresh.expectedQuoteAtoms,
+        beforeMonAtoms: fresh.walletBalanceWei,
+        beforeUsdcAtoms: fresh.walletQuoteBalanceAtoms,
       });
       journalId = journal.id;
       setExecutionMessage('Awaiting explicit confirmation in your wallet. Do not confirm unexpected values.');
@@ -112,7 +118,9 @@ export function NativeSellPreflight({ account, baseAmountAtoms }: { account: Add
         return;
       }
       const filledSizeRaw = trades.reduce((sum, trade) => sum + trade.filledSizeRaw, 0n);
-      updateJournalRecord(window.localStorage, journal.id, { status: 'CONFIRMED', blockNumber: receipt.blockNumber.toString(), filledSizeRaw: filledSizeRaw.toString() });
+      const after = await readWalletBalances(publicClient, fresh.account);
+      const received = after.usdc >= BigInt(fresh.walletQuoteBalanceAtoms) ? after.usdc - BigInt(fresh.walletQuoteBalanceAtoms) : undefined;
+      updateJournalRecord(window.localStorage, journal.id, { status: 'CONFIRMED', blockNumber: receipt.blockNumber.toString(), filledSizeRaw: filledSizeRaw.toString(), afterMonAtoms: after.mon.toString(), afterUsdcAtoms: after.usdc.toString(), ...(received === undefined ? {} : { receivedQuoteAtoms: received.toString() }) });
       window.dispatchEvent(new Event('strategy-desk:balances-stale'));
       setExecutionMessage(`Confirmed with ${trades.length} verified Kuru fill event${trades.length === 1 ? '' : 's'}.`);
     } catch (error) {
@@ -136,23 +144,24 @@ export function NativeSellPreflight({ account, baseAmountAtoms }: { account: Add
       </div>
       <p className="supporting-copy">Re-reads the proxy, order book, balance and gas; then simulates a 0.50% protected, fill-or-kill native MON sell. Simulation never signs or broadcasts.</p>
       {state.kind === 'error' ? <div className="notice danger"><strong>{state.code}</strong><br />{state.message}</div> : null}
-      {state.kind === 'ready' ? <PreparedReview value={state.preparation} onExecute={execute} executionMessage={executionMessage} /> : null}
+      {state.kind === 'ready' ? <PreparedReview value={state.preparation} receivedAtSeconds={state.receivedAtSeconds} onExecute={execute} executionMessage={executionMessage} /> : null}
     </section>
   );
 }
 
-function PreparedReview({ value, onExecute, executionMessage }: { value: NativeSellPreparationDto; onExecute: () => void; executionMessage: string }) {
+function PreparedReview({ value, receivedAtSeconds, onExecute, executionMessage }: { value: NativeSellPreparationDto; receivedAtSeconds: bigint; onExecute: () => void; executionMessage: string }) {
+  const freshness = quoteFreshness(BigInt(value.expiresAtSeconds), receivedAtSeconds);
   return (
     <div className="prepared-review">
       <div className="review-metrics">
-        <Metric label="Exact MON sent" value={`${formatCompactAtoms(BigInt(value.baseAmountAtoms), 18, 6)} MON`} />
-        <Metric label="Simulated output" value={`${formatCompactAtoms(BigInt(value.expectedQuoteAtoms), 6, 6)} USDC`} />
-        <Metric label="Minimum output" value={`${formatCompactAtoms(BigInt(value.minimumQuoteAtoms), 6, 6)} USDC`} />
-        <Metric label="Protection" value="0.50% · fill or kill" />
-        <Metric label="Gas estimate" value={`${value.gasEstimate} units`} />
-        <Metric label="Maximum gas at quote" value={`${formatCompactAtoms(BigInt(value.maximumGasCostWei), 18, 6)} MON`} />
-        <Metric label="Kuru fee field" value={`${value.takerFeeBps} bps`} />
-        <Metric label="Simulation block" value={value.blockNumber} />
+        <Metric label="You would sell" value={`${formatCompactAtoms(BigInt(value.baseAmountAtoms), 18, 6)} MON`} />
+        <Metric label="Estimated received" value={`${formatCompactAtoms(BigInt(value.expectedQuoteAtoms), 6, 6)} USDC`} />
+        <Metric label="Protected minimum" value={`${formatCompactAtoms(BigInt(value.minimumQuoteAtoms), 6, 6)} USDC`} />
+        <Metric label="Price impact" value={`${formatCompactAtoms(BigInt(value.estimatedPriceImpactBps), 2, 2)}%`} />
+        <Metric label="Slippage protection" value="0.50% · full fill required" />
+        <Metric label="Estimated network fee ceiling" value={`${formatCompactAtoms(BigInt(value.maximumGasCostWei), 18, 6)} MON`} />
+        <Metric label="Kuru taker fee" value={`${formatCompactAtoms(BigInt(value.takerFeeBps), 2, 2)}%`} />
+        <Metric label="Quote status" value={freshness === 'FRESH' ? 'Fresh · 20-second window' : freshness === 'EXPIRING' ? 'Expiring now' : 'Expired · simulate again'} />
       </div>
       <details><summary>Contract evidence</summary><div className="evidence-list compact-evidence"><div className="evidence-row"><span>Market</span><strong>{value.marketAddress}</strong></div><div className="evidence-row"><span>Implementation</span><strong>{value.implementationAddress}</strong></div><div className="evidence-row"><span>Code hash</span><strong>{value.implementationCodeHash}</strong></div><div className="evidence-row"><span>Failure conditions</span><strong>quote expiry, account/network change, insufficient MON or gas, proxy upgrade, stale book, inadequate full-fill liquidity, output below minimum</strong></div></div></details>
       <div className="execution-gate">

@@ -12,6 +12,7 @@ import {
   simulateProtectedNativeSell,
   verifyDeployedMarket,
   KURU_MON_USDC_IMPLEMENTATION,
+  estimatedSellPriceImpactBps,
 } from '../src/index.ts';
 
 test('declared 200 MON minimum is normalized in size precision, not token atoms', () => {
@@ -34,6 +35,17 @@ test('slippage bound rounds down in quote-token atoms', () => {
   assert.equal(minimumOutputAfterSlippage(4_856_400n, 50n), 4_832_118n);
   assert.throws(() => minimumOutputAfterSlippage(4_856_400n, 1_001n),
     (error: unknown) => error instanceof PreflightError && error.code === 'INVALID_AMOUNT');
+});
+
+test('slippage floor never rounds above the simulated output', () => {
+  assert.equal(minimumOutputAfterSlippage(1n, 50n), 0n);
+  assert.equal(minimumOutputAfterSlippage(4_800_001n, 50n), 4_776_000n);
+});
+
+test('price impact compares the simulated average with the live best bid using bigint math', () => {
+  assert.equal(estimatedSellPriceImpactBps(4_800_000n, 200n * 10n ** 18n, 24_000_000_000_000_000n), 0n);
+  assert.equal(estimatedSellPriceImpactBps(4_752_000n, 200n * 10n ** 18n, 24_000_000_000_000_000n), 100n);
+  assert.throws(() => estimatedSellPriceImpactBps(0n, 1n, 1n));
 });
 
 test('Trade decoding accepts only the configured market and expected taker', () => {

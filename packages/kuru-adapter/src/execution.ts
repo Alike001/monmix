@@ -17,6 +17,7 @@ import {
   MONAD_MAINNET_CHAIN_ID,
 } from './addresses.ts';
 import { readMarketSnapshot } from './market.ts';
+import { readWalletBalances } from './market.ts';
 
 export type PreflightFailureCode =
   | 'WRONG_CHAIN'
@@ -58,6 +59,9 @@ export interface NativeSellPreparation {
   gasPriceWei: bigint;
   maximumGasCostWei: bigint;
   walletBalanceWei: bigint;
+  walletQuoteBalanceAtoms: bigint;
+  bestBidX18: bigint;
+  estimatedPriceImpactBps: bigint;
   takerFeeBps: bigint;
   fillOrKill: true;
   isMargin: false;
@@ -82,6 +86,9 @@ export type NativeSellPreparationDto = {
   gasPriceWei: string;
   maximumGasCostWei: string;
   walletBalanceWei: string;
+  walletQuoteBalanceAtoms: string;
+  bestBidX18: string;
+  estimatedPriceImpactBps: string;
   takerFeeBps: string;
   fillOrKill: true;
   isMargin: false;
@@ -108,6 +115,14 @@ export function minimumOutputAfterSlippage(expected: bigint, slippageBps: bigint
     throw new PreflightError('INVALID_AMOUNT', 'Slippage must be between 0 and 10%.');
   }
   return (expected * (10_000n - slippageBps)) / 10_000n;
+}
+
+export function estimatedSellPriceImpactBps(expectedQuoteAtoms: bigint, baseAmountAtoms: bigint, bestBidX18: bigint): bigint {
+  if (expectedQuoteAtoms <= 0n || baseAmountAtoms <= 0n || bestBidX18 <= 0n) {
+    throw new PreflightError('INVALID_AMOUNT', 'Price-impact inputs must be positive.');
+  }
+  const averagePriceX18 = (expectedQuoteAtoms * 10n ** 30n) / baseAmountAtoms;
+  return averagePriceX18 >= bestBidX18 ? 0n : ((bestBidX18 - averagePriceX18) * 10_000n) / bestBidX18;
 }
 
 export function assertDeclaredOrderSize(sizeRaw: bigint, minSize: bigint, maxSize: bigint): void {
@@ -169,16 +184,17 @@ export async function prepareNativeMarketSell(
 ): Promise<NativeSellPreparation> {
   const account = getAddress(input.account);
   const nowSeconds = input.nowSeconds ?? BigInt(Math.floor(Date.now() / 1000));
-  const [deployment, snapshot, walletBalanceWei, blockNumber] = await Promise.all([
+  const [deployment, snapshot, walletBalances, blockNumber] = await Promise.all([
     verifyDeployedMarket(client),
     readMarketSnapshot(client, nowSeconds),
-    client.getBalance({ address: account }),
+    readWalletBalances(client, account),
     client.getBlockNumber(),
   ]);
   if (snapshot.status === 'STALE') throw new PreflightError('STALE_MARKET', 'The Kuru order book is stale.');
   if (snapshot.status === 'EMPTY') throw new PreflightError('NO_LIQUIDITY', 'The Kuru order book has no two-sided liquidity.');
   const normalized = normalizeBaseAtomsToSizeRaw(input.baseAmountAtoms, snapshot.params.sizePrecision, snapshot.params.baseAssetDecimals);
   assertDeclaredOrderSize(normalized.sizeRaw, snapshot.params.minSize, snapshot.params.maxSize);
+  const walletBalanceWei = walletBalances.mon;
   if (walletBalanceWei < normalized.normalizedBaseAtoms) {
     throw new PreflightError('INSUFFICIENT_MON', 'Wallet MON balance is below the exact sell amount.');
   }
@@ -195,6 +211,7 @@ export async function prepareNativeMarketSell(
       throw new PreflightError('INSUFFICIENT_MON', 'Wallet cannot cover both the sell amount and estimated network gas.');
     }
     const expiresAtSeconds = nowSeconds + 20n;
+    const estimatedPriceImpactBps = estimatedSellPriceImpactBps(expectedQuoteAtoms, normalized.normalizedBaseAtoms, snapshot.bestBidX18);
     const fingerprint = keccak256(encodePacked(
       ['uint256', 'address', 'address', 'uint96', 'uint256', 'uint256', 'bool'],
       [BigInt(MONAD_MAINNET_CHAIN_ID), account, KURU_MON_USDC_MARKET, normalized.sizeRaw, minimumQuoteAtoms, blockNumber, true],
@@ -206,6 +223,7 @@ export async function prepareNativeMarketSell(
       baseAmountAtoms: normalized.normalizedBaseAtoms, sizeRaw: normalized.sizeRaw,
       expectedQuoteAtoms, minimumQuoteAtoms, slippageBps: input.slippageBps,
       gasEstimate, gasPriceWei, maximumGasCostWei, walletBalanceWei,
+      walletQuoteBalanceAtoms: walletBalances.usdc, bestBidX18: snapshot.bestBidX18, estimatedPriceImpactBps,
       takerFeeBps: snapshot.params.takerFeeBps, fillOrKill: true, isMargin: false, fingerprint,
     };
   } catch (error) {

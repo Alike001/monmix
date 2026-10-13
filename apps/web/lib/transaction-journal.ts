@@ -19,6 +19,12 @@ export interface JournalRecord {
   marketAddress: Address;
   baseAmountAtoms: string;
   minimumQuoteAtoms: string;
+  expectedQuoteAtoms?: string;
+  beforeMonAtoms?: string;
+  beforeUsdcAtoms?: string;
+  afterMonAtoms?: string;
+  afterUsdcAtoms?: string;
+  receivedQuoteAtoms?: string;
   createdAt: string;
   updatedAt: string;
   hash?: Hex;
