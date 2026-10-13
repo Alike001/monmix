@@ -34,6 +34,8 @@ export function ConnectWallet() {
   const [available, setAvailable] = useState<Record<string, boolean>>({});
   const [open, setOpen] = useState(false);
   const [connectingUid, setConnectingUid] = useState<string>();
+  const triggerButton = useRef<HTMLButtonElement>(null);
+  const dialog = useRef<HTMLElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -51,8 +53,24 @@ export function ConnectWallet() {
   useEffect(() => {
     if (!open) return;
     const previousOverflow = document.body.style.overflow;
+    const trigger = triggerButton.current;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key === 'Escape') {
+        setOpen(false);
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const focusable = [...(dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])') ?? [])];
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (!first || !last) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.body.style.overflow = 'hidden';
     document.addEventListener('keydown', onKeyDown);
@@ -60,6 +78,7 @@ export function ConnectWallet() {
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', onKeyDown);
+      trigger?.focus();
     };
   }, [open]);
 
@@ -77,6 +96,7 @@ export function ConnectWallet() {
   return (
     <div className="wallet-entry">
       <button
+        ref={triggerButton}
         className={`wallet-trigger ${wallet.readiness === 'READY' ? 'ready' : ''} ${connected && wallet.readiness !== 'READY' ? 'attention' : ''}`}
         type="button"
         aria-haspopup="dialog"
@@ -93,7 +113,7 @@ export function ConnectWallet() {
 
       {open && typeof document !== 'undefined' ? createPortal((
         <div className="wallet-modal-backdrop" onMouseDown={(event) => { if (event.currentTarget === event.target) setOpen(false); }}>
-          <section className="wallet-modal" role="dialog" aria-modal="true" aria-labelledby="wallet-dialog-title">
+          <section ref={dialog} className="wallet-modal" role="dialog" aria-modal="true" aria-labelledby="wallet-dialog-title">
             <div className="wallet-modal-head">
               <div>
                 <span className="eyebrow">Wallet access</span>

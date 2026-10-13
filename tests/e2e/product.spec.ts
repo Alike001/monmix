@@ -251,6 +251,11 @@ test('wallet chooser remains accessible and reachable on mobile', async ({ page 
   await page.getByRole('button', { name: /Connect wallet/ }).click();
   const dialog = page.getByRole('dialog', { name: 'Choose a wallet' });
   await expect(dialog).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Close wallet dialog' })).toBeFocused();
+  await page.keyboard.press('Shift+Tab');
+  await expect(dialog.locator('button:not(:disabled)').last()).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('button', { name: 'Close wallet dialog' })).toBeFocused();
   const box = await dialog.boundingBox();
   expect(box).not.toBeNull();
   expect(box!.y).toBeGreaterThanOrEqual(0);
