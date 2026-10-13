@@ -1,24 +1,33 @@
-# Milestone 1 threat model
+# Transaction-ready threat model
 
-## Assets and trust boundaries
+## Assets and boundaries
 
-The application reads public chain state and a connected wallet's public address. It does not custody tokens, secrets, signatures or approvals. The main integrity asset is the correctness of the displayed market and recommendation.
+The browser reads public chain state and can connect to an injected wallet. It never receives a private key. Mainnet execution is disabled by default. Strategy preferences and caps are browser-local advisory inputs, not enforceable permissions.
 
-## Threats and controls
+## Controls
 
 | Threat | Control |
 | --- | --- |
-| Wrong chain or spoofed RPC | Require RPC chain ID 143; require connected wallet chain 143 independently. |
-| Wrong market or token decimals | Compare every market parameter with the pinned deployed market, native MON, USDC address and decimals. |
-| Factor-of-ten valuation error | Normalize packed L2 at reported 1e8 and BBO at 1e18; reject >1% disagreement; regression test the 10x case. |
-| Stale data | Use the L2 block timestamp and block the policy after 30 seconds. No cached price fallback. |
-| Malformed or incomplete packed bytes | Require full 32-byte words, bid separator, nonzero paired sizes and no trailing data. |
-| Zero or one-sided liquidity | Mark market `EMPTY` and block review. |
-| Inadequate visible depth or market minimum | Walk price levels using integer units; block below minimum or insufficient depth. |
-| Misleading safety claim | UI and documentation state that TypeScript caps are advisory and not contract enforced. |
-| Accidental transaction path | No write ABI, wallet client, approval function, transaction route, signer, private-key input or worker exists. |
-| Reference-license contamination | References live outside the product repo; dependencies were not installed; no source or assets imported. |
+| Wrong RPC, wallet chain or account | Require chain 143 independently; bind each preflight and journal record to the checksummed account; refuse changes before wallet invocation. |
+| Proxy upgrade or ABI drift | Verify the EIP-1967 implementation address and runtime bytecode hash before every preflight. Refuse any change pending review. |
+| Price precision error | Cross-check packed 1e8 prices against x18 BBO and reject >1% disagreement; retain factor-of-ten regression. |
+| Stale, malformed or empty market | Reject stale block timestamps, malformed packed words, zero/one-sided books and insufficient full-fill depth. |
+| Market-size ambiguity | Normalize token atoms to 1e10 size precision with bigint math; enforce the declared 200 MON minimum even though the direct market-sell path accepts less. |
+| Slippage or partial fill | First simulate for output, round the protected USDC floor down in atoms, then simulate the exact protected call with fill-or-kill true. |
+| Quote ageing | Preparations expire after 20 seconds and are recreated immediately before the wallet opens. The contract itself has no deadline, which remains residual risk. |
+| Insufficient balance or gas | Re-read wallet MON, estimate the exact call's gas and require sell value plus the quoted gas cost. Wallet/network fees can still change. |
+| Duplicate action | In-memory click lock plus a persisted fingerprint refuse another active wallet/broadcast record. No automatic transaction retry. |
+| Crash or reload | Write journal before the wallet, persist hash immediately, reconcile receipts on reload, and mark no-hash interruptions unresolved. |
+| False confirmation | Accept success only from a successful receipt with at least one matching Kuru `Trade` event from the configured market/taker. |
+| Misleading records | Simulation never enters activity. Rejected, reverted, unresolved and confirmed are distinct states. |
+| Unbounded authority | No backend key, automation, approval, USDC buy, custom contract or unattended signer. Execution requires a build-time flag plus an explicit wallet confirmation. |
 
 ## Residual risk
 
-Public RPC responses can be unavailable or malicious despite consistency checks. Visible order-book depth can change before any future execution. Wallet extensions remain third-party software. The current product must not be used as an execution guarantee.
+- There is no onchain deadline between final simulation and execution.
+- The pinned upgradeable implementation can legitimately change; the app will fail closed until reviewed and updated.
+- RPCs and wallet extensions remain trusted software and can be unavailable or malicious.
+- Browser local storage is durable convenience, not a canonical cross-device ledger.
+- Daily limits are not reconstructed from all wallet activity and are not independently enforced.
+- Fee fields currently read zero, but gas and future protocol changes can alter total cost.
+- A real funded receipt and fill remain unverified until the owner separately approves a mainnet trade.

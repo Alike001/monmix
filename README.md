@@ -1,16 +1,17 @@
 # Monad Strategy Desk
 
-Monad Strategy Desk is a read-only spot portfolio strategy product for Monad. A user can inspect Kuru's live MON/USDC order book, connect an injected wallet, read real MON and USDC balances, choose a target allocation and advisory limits, and receive a deterministic `WAIT`, `BLOCK`, or `REVIEW` result.
+Monad Strategy Desk is an owner-controlled spot portfolio strategy product for Monad. A user can inspect Kuru's live MON/USDC order book, connect an injected wallet, read real MON and USDC balances, choose a target allocation and advisory limits, receive a deterministic `WAIT`, `BLOCK`, or `REVIEW`, and simulate an exact protected native MON sell.
 
-Milestone 1 **cannot trade**. It has no write ABI, wallet client, token approval, transaction construction, signing, broadcasting, automation, private-key handling, or contract deployment. TypeScript policy limits bound a recommendation only; they are not independently enforced financial controls.
+The user-confirmed native MON sell lifecycle is implemented but **disabled by default**. This work did not sign or broadcast a transaction. It has no token approval, backend signer, automation, private-key handling, or contract deployment. TypeScript policy limits bound a recommendation only; they are not independently enforced financial controls.
 
 ## Thirty-second journey
 
 1. `/markets` verifies the deployed Kuru market, token metadata, precision, freshness and two-sided depth.
 2. `/desk` connects an injected wallet on Monad chain 143 and reads native MON plus USDC balances.
 3. The user sets a MON target, drift threshold, per-review cap, daily advisory budget and minimum review size.
-4. Integer-only policy math returns `WAIT`, `BLOCK`, or `REVIEW` and, when possible, walks visible Kuru depth for a read-only estimate.
-5. `/activity` and `/proof` distinguish verified evidence from future transaction functionality.
+4. Integer-only policy math returns `WAIT`, `BLOCK`, or `REVIEW`; adjustments under Kuru's declared 200 MON minimum are refused.
+5. An eligible native MON sell can be revalidated and simulated exactly with bigint slippage protection, fill-or-kill, gas, balance, proxy and code-hash checks.
+6. `/activity` persists wallet lifecycle records and reconciles actual receipts and Kuru `Trade` events. No simulation is presented as a trade.
 
 ## Run locally
 
@@ -56,7 +57,7 @@ The application never embeds a previously observed price as live data. A mismatc
 ```text
 apps/web/                 Next.js App Router product
 packages/domain/          Original deterministic policy and unit math
-packages/kuru-adapter/    Minimal read-only ABI, packed L2 decoder and review estimator
+packages/kuru-adapter/    Minimal ABIs, packed L2 decoder, review and direct-sell preflight
 docs/                     Product, threat, integration, test and evidence documents
 ```
 
@@ -70,10 +71,10 @@ OpenAI Codex was used for repository research, architecture, implementation, tes
 
 ## Current limits
 
-- Wallet connection exposes a public address and chain identity only.
+- Mainnet execution is off unless an owner-reviewed build explicitly sets `NEXT_PUBLIC_ENABLE_MAINNET_EXECUTION=true`.
 - The packed L2 interface reflects the verified deployed legacy market shape; the newer Kuru TS SDK uses a different ABI generation and is currently `UNLICENSED`.
-- Visible depth is an estimate, not an execution guarantee.
-- No durable strategy record or daily spend reconciliation exists because no execution exists.
-- No transaction hash, fill, cancellation, approval, or enforceable cap can be claimed.
+- The direct sell has no onchain deadline; the app uses a short client preparation lifetime and mandatory re-simulation, which cannot eliminate wallet-confirmation latency.
+- Strategy preferences and the daily budget are local advisory data, not contract-enforced restrictions.
+- USDC-to-MON buying, approvals, automation and independently enforced caps remain unavailable.
 
 See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for raw read evidence and [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) for the Milestone 1 safety boundary.

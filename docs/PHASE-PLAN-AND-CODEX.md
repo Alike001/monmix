@@ -1,6 +1,6 @@
 # Phase plan and Codex handoff
 
-> Status update, 2026-10-13: Stage 0 and the read-only Stage 1 vertical slice are complete. See `MILESTONES.md` and `EVIDENCE_LEDGER.md` for current evidence. Stages 2–4 remain future gates.
+> Status update, 2026-10-13: Stages 0–1 and the transaction-ready portion of Stage 2 are complete. Native MON execution is disabled by default and has not been funded or broadcast. See `MILESTONES.md` and `EVIDENCE_LEDGER.md` for current evidence.
 
 ## Stage 0: Pinned reference review & product boundary (start now)
 - Read SOURCE-IMPLEMENTATION-MAP.md, PRODUCT-SCOPE.md, README.md, policy.ts, tests.
@@ -26,6 +26,8 @@
 - Reconcile accepted tx hash to receipt and orders/fills, persist idempotency keys. No fake fills.
 - Test wrong chain, stale quote, deadline expiry, insufficient gas/margin, partial fill, RPC timeout and user rejection.
 **Exit:** confirmed Monad testnet transaction and verifiable per-order report with recoverable failure flows.
+
+Implementation note: direct native MON sell preparation, wallet guarding, journaling and receipt reconciliation are complete. The remaining exit evidence is an explicitly owner-approved funded mainnet transaction; the deployed market is mainnet and no compatible testnet deployment was asserted. USDC buying remains deferred pending approval validation.
 
 ## Stage 3: Authorized automation (conditional, not automatic)
 - Before signing unattended, prove cryptographically/onchain enforced policy: venue allowlist, max per-order and daily total, order direction, expiry, cancels, withdraw access, pause/revoke.

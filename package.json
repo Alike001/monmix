@@ -10,14 +10,17 @@
     "build": "pnpm --filter @monad-strategy/web build",
     "test": "pnpm -r test",
     "test:live": "pnpm --filter @monad-strategy/kuru-adapter test:live",
+    "test:e2e": "playwright test",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint . --max-warnings=0",
-    "verify": "pnpm test && pnpm typecheck && pnpm lint && pnpm build"
+    "verify": "pnpm test && pnpm typecheck && pnpm lint && pnpm build && pnpm test:e2e"
   },
   "engines": {
     "node": ">=22.16"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.11.0",
+    "@playwright/test": "1.61.1",
     "@types/node": "24.10.1",
     "eslint": "9.39.1",
     "eslint-config-next": "16.2.9",

@@ -8,9 +8,9 @@ Complete: preserve Phase 0 in Git, pin references, record license conditions, ve
 
 Complete: landing, market, injected wallet, balances, target policy, depth review, activity, proof and docs; production quality gates and live public reads.
 
-## Milestone 2 — user-confirmed trade (not authorized or implemented)
+## Milestone 2A–2C — transaction-ready native sell (implemented, disabled)
 
-Requires a separate approved plan and explicit approval before any funded action. Gates include supported Kuru write interface, exact approval scope, amount/min-out/deadline binding, gas and balance checks, user rejection, partial fill semantics, transaction journal, receipt/event reconciliation and a tiny disposable-wallet run.
+Complete in code: exact native MON sell preflight, proxy/code identity check, 200 MON product minimum, bigint output floor, fill-or-kill simulation, gas and balance checks, wallet/account/network refusal, duplicate protection, browser journal and receipt/`Trade` reconciliation. The execution build flag remains off. No transaction was signed or broadcast. A funded mainnet proof requires separate owner approval.
 
 ## Milestone 3 — automation (not approved)
 
