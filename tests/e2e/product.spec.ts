@@ -73,6 +73,8 @@ for (const viewport of viewports) {
 
 test('disconnected desk refuses portfolio evaluation and exposes no enabled trade control', async ({ page }) => {
   await page.goto('/desk');
+  await expect(page.getByRole('button', { name: /Connect wallet/ })).toHaveCount(1);
+  await expect(page.locator('.portfolio-panel').getByRole('button', { name: /Connect wallet/ })).toHaveCount(0);
   await expect(page.getByText('Connect your wallet to see your plan.')).toBeVisible();
   await expect(page.getByText('BLOCK')).toBeVisible();
   await expect(page.getByRole('button', { name: /confirm in wallet/i })).toHaveCount(0);
@@ -189,18 +191,72 @@ test('multiple injected wallets require selection and a rejected network switch 
   }, { injectedAccount: account });
 
   await page.goto('/desk');
-  const desk = page.locator('#main-content');
-  const picker = desk.getByRole('combobox', { name: 'Choose injected wallet' });
-  await expect(picker).toBeVisible();
-  await expect(desk.getByRole('button', { name: 'Choose a wallet' })).toBeDisabled();
-  await picker.selectOption({ label: 'MetaMask' });
-  await desk.getByRole('button', { name: 'Connect MetaMask' }).click();
-  await expect(desk.getByText(/WRONG NETWORK.*MetaMask/)).toBeVisible();
-  await expect(desk.getByText('Switch to Monad mainnet.')).toBeVisible();
-  await desk.getByRole('button', { name: 'Switch to Monad' }).click();
-  await expect(desk.getByText(/User rejected/i)).toBeVisible();
-  await expect(desk.getByText(/WRONG NETWORK.*MetaMask/)).toBeVisible();
+  await page.getByRole('button', { name: /Connect wallet/ }).click();
+  const dialog = page.getByRole('dialog', { name: 'Choose a wallet' });
+  await expect(dialog.getByRole('button', { name: /MetaMask.*Connect/ })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: /Rabby Wallet.*Connect/ })).toBeVisible();
+  await dialog.getByRole('button', { name: /MetaMask.*Connect/ }).click();
+  await expect(page.getByRole('dialog', { name: 'Your connected wallet' })).toBeVisible();
+  await expect(page.getByRole('dialog').getByText('WRONG NETWORK', { exact: true })).toBeVisible();
+  await expect(page.getByText('Ethereum Mainnet', { exact: true })).toBeVisible();
+  await expect(page.getByText('Provider chain ID').locator('..').getByText('1', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Switch to Monad Mainnet' }).click();
+  await expect(page.getByText(/User rejected/i)).toBeVisible();
+  await expect(page.getByRole('dialog').getByText('WRONG NETWORK', { exact: true })).toBeVisible();
+  await expect(page.getByText('Switch to Monad mainnet.')).toBeVisible();
   expect(balanceReads).toBe(0);
+});
+
+test('a selected provider becomes ready only after its reported chain switches to Monad mainnet', async ({ page }) => {
+  const account = '0x1111111111111111111111111111111111111111';
+  await page.route('**/api/balances?**', (route) => route.fulfill({ json: { ok: true, mon: '0', usdc: '0' } }));
+  await page.addInitScript(({ injectedAccount }) => {
+    const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
+    let chainId = '0xa4b1';
+    const provider = {
+      isMetaMask: true,
+      request: async ({ method }: { method: string }) => {
+        if (method === 'eth_requestAccounts' || method === 'eth_accounts') return [injectedAccount];
+        if (method === 'eth_chainId') return chainId;
+        if (method === 'wallet_switchEthereumChain') {
+          chainId = '0x8f';
+          window.setTimeout(() => { for (const listener of listeners.get('chainChanged') ?? []) listener(chainId); }, 0);
+          return null;
+        }
+        if (method === 'wallet_requestPermissions' || method === 'wallet_getPermissions') return [{ parentCapability: 'eth_accounts' }];
+        throw new Error(`Unsupported mock method ${method}`);
+      },
+      on: (event: string, listener: (...args: unknown[]) => void) => {
+        const handlers = listeners.get(event) ?? new Set(); handlers.add(listener); listeners.set(event, handlers);
+      },
+      removeListener: (event: string, listener: (...args: unknown[]) => void) => listeners.get(event)?.delete(listener),
+    };
+    Object.defineProperty(window, 'ethereum', { configurable: true, value: provider });
+  }, { injectedAccount: account });
+
+  await page.goto('/desk');
+  await page.getByRole('button', { name: /Connect wallet/ }).click();
+  await page.getByRole('dialog').getByRole('button', { name: /Browser wallet.*Connect/ }).click();
+  await expect(page.getByText('Arbitrum One', { exact: true })).toBeVisible();
+  await expect(page.getByRole('dialog').getByText('WRONG NETWORK', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Switch to Monad Mainnet' }).click();
+  await expect(page.getByRole('dialog').getByText('READY', { exact: true })).toBeVisible();
+  await expect(page.getByText('Monad Mainnet', { exact: true })).toBeVisible();
+  await expect(page.getByText('Provider chain ID').locator('..').getByText('143', { exact: true })).toBeVisible();
+});
+
+test('wallet chooser remains accessible and reachable on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto('/desk');
+  await page.getByRole('button', { name: /Connect wallet/ }).click();
+  const dialog = page.getByRole('dialog', { name: 'Choose a wallet' });
+  await expect(dialog).toBeVisible();
+  const box = await dialog.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.y).toBeGreaterThanOrEqual(0);
+  expect(box!.y + box!.height).toBeLessThanOrEqual(812);
+  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
+  expect(results.violations, results.violations.map((item) => `${item.id}: ${item.help}`).join('\n')).toEqual([]);
 });
 
 test('a verified empty Monad wallet is not described as an on-track allocation', async ({ page }) => {
@@ -232,7 +288,9 @@ test('a verified empty Monad wallet is not described as an on-track allocation',
   }, { injectedAccount: account });
 
   await page.goto('/desk');
-  await page.locator('#main-content').getByRole('button', { name: 'Connect wallet' }).click();
+  await page.getByRole('button', { name: /Connect wallet/ }).click();
+  await page.getByRole('dialog').getByRole('button', { name: /Browser wallet.*Connect/ }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
   await expect(page.getByRole('heading', { name: 'This portfolio is empty.' })).toBeVisible();
   await expect(page.getByText(/No MON or USDC was found/)).toBeVisible();
   await expect(page.getByText('Your allocation is on track.')).toHaveCount(0);
@@ -284,8 +342,10 @@ test('mocked injected wallet reaches a protected buy preparation without enablin
   }, { injectedAccount: account });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/desk');
-  await page.locator('#main-content').getByRole('button', { name: 'Connect wallet' }).click();
-  await expect(page.locator('#main-content').getByText('0x7Db9…E937')).toBeVisible();
+  await page.getByRole('button', { name: /Connect wallet/ }).click();
+  await page.getByRole('dialog').getByRole('button', { name: /MetaMask.*Connect|Browser wallet.*Connect/ }).click();
+  await page.getByRole('button', { name: 'Done' }).click();
+  await expect(page.locator('header').getByText(/0x7Db9…E937/)).toBeVisible();
   await page.getByRole('slider', { name: 'Target MON percentage' }).fill('100');
   await expect(page.getByRole('heading', { name: 'A MON buy is suggested.' })).toBeVisible({ timeout: 20_000 });
   await page.getByRole('button', { name: 'Prepare buy' }).click();
@@ -294,6 +354,6 @@ test('mocked injected wallet reaches a protected buy preparation without enablin
   await expect(page.getByRole('button', { name: 'Mainnet execution disabled' })).toBeDisabled();
   const nextAccount = '0x2222222222222222222222222222222222222222';
   await page.evaluate((next) => (window as unknown as { __monmixSwitchAccount(next: string): void }).__monmixSwitchAccount(next), nextAccount);
-  await expect(page.locator('#main-content').getByText('0x2222…2222')).toBeVisible();
+  await expect(page.locator('header').getByText(/0x2222…2222/)).toBeVisible();
   await expect(page.getByText('Exact approval required')).toHaveCount(0);
 });

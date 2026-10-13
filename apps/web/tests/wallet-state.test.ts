@@ -7,6 +7,7 @@ import {
   parseProviderChainId,
   readProviderWalletState,
   selectableWalletConnectors,
+  walletNetworkName,
 } from '../lib/wallet-state.ts';
 
 const account = '0x1111111111111111111111111111111111111111' as const;
@@ -20,9 +21,20 @@ test('wallet stays disconnected or verifying until the selected provider is read
 });
 
 test('actual provider chain is authoritative for wrong-network readiness', () => {
-  assert.equal(getWalletReadiness({ status: 'connected', wagmiAddress: account, wagmiChainId: 143, provider: { chainId: 1, accounts: [account] }, requiredChainId: 143 }), 'WRONG_NETWORK');
+  for (const chainId of [1, 42161, 10143]) {
+    assert.equal(getWalletReadiness({ status: 'connected', wagmiAddress: account, wagmiChainId: chainId, provider: { chainId, accounts: [account] }, requiredChainId: 143 }), 'WRONG_NETWORK');
+  }
   assert.equal(getWalletReadiness({ status: 'connected', wagmiAddress: account, wagmiChainId: 1, provider: { chainId: 143, accounts: [account] }, requiredChainId: 143 }), 'PROVIDER_MISMATCH');
   assert.equal(getWalletReadiness({ status: 'connected', wagmiAddress: account, wagmiChainId: 143, provider: providerState, requiredChainId: 143 }), 'READY');
+});
+
+test('wallet networks are named without treating testnet as mainnet', () => {
+  assert.equal(walletNetworkName(143), 'Monad Mainnet');
+  assert.equal(walletNetworkName(10143), 'Monad Testnet');
+  assert.equal(walletNetworkName(1), 'Ethereum Mainnet');
+  assert.equal(walletNetworkName(42161), 'Arbitrum One');
+  assert.equal(walletNetworkName(999), 'Unsupported network');
+  assert.equal(walletNetworkName(undefined), 'Checking network');
 });
 
 test('provider account changes and missing accounts fail closed', () => {

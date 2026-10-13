@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { buildReadOnlyReview, deserializeMarketSnapshot, MONAD_MAINNET_CHAIN_ID, quoteAtomsForBaseAtoms } from '@monad-strategy/kuru-adapter';
 import { evaluateRebalance, formatAtoms, parseDecimalToAtoms, type ProposedAction } from '@monad-strategy/domain';
-import { ConnectWallet } from '@/features/wallet/connect-wallet';
 import { useVerifiedWallet } from '@/features/wallet/wallet-readiness-provider';
 import { NativeSellPreflight } from '@/features/execution/native-sell-preflight';
 import { NativeBuyPreflight } from '@/features/execution/native-buy-preflight';
@@ -101,7 +100,7 @@ export function AllocationPanel() {
     <div className="desk-steps" aria-label="Strategy workflow"><span className="active">1 Portfolio</span><span>2 Target</span><span>3 Decision</span><span>4 Preview</span></div>
     <div className="desk-layout"><div className="desk-main-column">
       <section className="card panel portfolio-panel">
-        <div className="panel-head"><div><span className="eyebrow">Your portfolio</span><h2>MON and USDC, valued now</h2><p>Read directly from your address on Monad.</p></div><ConnectWallet /></div>
+        <div className="panel-head"><div><span className="eyebrow">Your portfolio</span><h2>MON and USDC, valued now</h2><p>Connect and manage your wallet from the header. Balances appear here only after the selected wallet is verified on Monad mainnet.</p></div></div>
         {readiness === 'WRONG_NETWORK' ? <div className="notice danger"><strong>Wrong network.</strong> Monad balances are hidden until the selected wallet switches to chain {MONAD_MAINNET_CHAIN_ID}.</div> : null}
         {readiness === 'PROVIDER_MISMATCH' ? <div className="notice danger"><strong>Wallet state mismatch.</strong> Monad balances and trade preparations have been cleared. Disconnect and reconnect the wallet you intend to use.</div> : null}
         <div className="portfolio-summary"><AllocationRing allocation={result.kind === 'decision' ? result.allocationBps : null} total={result.kind === 'decision' ? result.baseValueQuoteAtoms + result.cashQuoteAtoms : null} /><div className="balance-grid">

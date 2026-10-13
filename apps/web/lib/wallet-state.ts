@@ -27,6 +27,15 @@ export function selectableWalletConnectors<T extends { id: string; rdns?: string
   return named.length > 0 ? named : [...connectors];
 }
 
+export function walletNetworkName(chainId: number | undefined): string {
+  if (chainId === undefined) return 'Checking network';
+  if (chainId === 143) return 'Monad Mainnet';
+  if (chainId === 10143) return 'Monad Testnet';
+  if (chainId === 1) return 'Ethereum Mainnet';
+  if (chainId === 42161) return 'Arbitrum One';
+  return 'Unsupported network';
+}
+
 export function isEip1193Provider(value: unknown): value is Eip1193Provider {
   return Boolean(value && typeof value === 'object' && typeof (value as Eip1193Provider).request === 'function');
 }

@@ -19,7 +19,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <small>safe mode</small>
         </Link>
         <PrimaryNavigation />
-        <ConnectWallet compact />
+        <ConnectWallet />
       </header>
       <main id="main-content">{children}</main>
       <footer className="footer">

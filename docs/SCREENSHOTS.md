@@ -12,3 +12,4 @@ Run `pnpm screenshots` while the production application is available at `http://
 | Activity `/activity` | [activity-desktop.png](screenshots/activity-desktop.png) | [activity-mobile.png](screenshots/activity-mobile.png) |
 | Proof `/proof` | [proof-desktop.png](screenshots/proof-desktop.png) | [proof-mobile.png](screenshots/proof-mobile.png) |
 | Method `/docs` | [docs-desktop.png](screenshots/docs-desktop.png) | [docs-mobile.png](screenshots/docs-mobile.png) |
+| Wallet chooser | [wallet-desktop.png](screenshots/wallet-desktop.png) | [wallet-mobile.png](screenshots/wallet-mobile.png) |

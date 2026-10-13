@@ -20,7 +20,7 @@ Desktop and mobile captures for every public route are indexed in [docs/SCREENSH
 ## Thirty-second journey
 
 1. `/markets` verifies the deployed Kuru market, token metadata, precision, freshness and two-sided depth.
-2. `/desk` requires an explicit injected-wallet choice when more than one extension is available, then verifies that provider's account and chain 143 before reading native MON plus USDC balances.
+2. The single header wallet entry opens an explicit injected-provider chooser. It identifies the selected extension, account, provider network and chain ID, then verifies that provider's account and Monad Mainnet chain 143 before `/desk` reads native MON plus USDC balances.
 3. The user sets a MON target, drift threshold, per-review cap, daily advisory budget and minimum review size.
 4. Integer-only policy math returns `WAIT`, `BLOCK`, or `REVIEW`; adjustments under Kuru's declared 200 MON minimum are refused.
 5. An eligible sell is simulated exactly. A buy first verifies an exact USDC approval requirement; after a separately confirmed allowance, the exact protected buy can be simulated. Both use bigint output protection, fill-or-kill, gas, balance, proxy and code-hash checks.

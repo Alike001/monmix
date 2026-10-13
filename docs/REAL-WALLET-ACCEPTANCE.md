@@ -14,12 +14,13 @@ Status: automated provider behavior is covered; owner-attended MetaMask-compatib
 
 | Case | Steps | Required result | Current evidence |
 | --- | --- | --- | --- |
-| Multiple extensions | Open `/desk` with at least two EIP-6963 wallets | Each wallet is named and only the explicitly selected provider connects | Automated multi-provider coverage; real extensions pending |
+| Single entry | Open `/desk` on desktop and mobile | The header contains the only wallet entry; the portfolio card contains no duplicate selector | Automated browser and responsive coverage; real device pending |
+| Multiple extensions | Open the header wallet dialog with at least two EIP-6963 wallets | Each wallet is a named, separate choice and only the explicitly selected provider connects | Automated multi-provider coverage; real extensions pending |
 | Provider discovery | Open `/desk` with and without the extension | Missing provider is explained; detected provider offers Connect | Automated browser mock; real extension pending |
 | Account selection | Select an account in the chosen wallet | UI names that wallet, shows its shortened address, and reads balances only after direct `eth_accounts` agrees with wagmi | Automated provider-change coverage; real extension pending |
-| Correct network | Connect on chain 143 | Direct provider `eth_chainId`, wagmi chain and Monad RPC context agree before the portfolio becomes readable | Automated mock/read-only RPC; real extension pending |
-| Wrong network | Connect on another chain | No recommendation from mixed-chain balances; Switch to Monad is offered | Unit/browser behavior; real extension pending |
-| Chain switch | Approve `wallet_switchEthereumChain` to 143 | UI transitions to connected Monad state and reloads balances | Mock plan only; real extension pending |
+| Correct network | Connect on chain 143 | Dialog shows `Monad Mainnet · 143`; direct provider `eth_chainId`, wagmi chain and Monad RPC context agree before the portfolio becomes readable | Automated mock/read-only RPC; real extension pending |
+| Wrong network | Connect on Ethereum (1), Arbitrum One (42161) and Monad Testnet (10143) | Each is named and remains `WRONG NETWORK`; no recommendation uses mixed-chain balances | Unit/browser behavior; real extension pending |
+| Chain switch | Approve `wallet_switchEthereumChain` to 143 from the selected provider | Dialog transitions to `READY`, reports chain 143 and reloads balances | Automated provider mock; real extension pending |
 | Reject chain switch | Reject the request | Wrong-network refusal remains; no stale recommendation, Monad balance display or write | Automated rejection coverage; real extension pending |
 | Balance accuracy | Compare displayed MON/USDC with wallet and Monad RPC | Exact atom reads agree after formatting | Live RPC adapter verified; owner account pending |
 | Market and allocation | Compare `/markets`, wallet amounts, total value and MON percentage against independent read-only RPC calculations | Fresh Kuru values and bigint allocation agree; unavailable data never becomes a recommendation | Adapter/browser coverage; owner account pending |
@@ -31,6 +32,7 @@ Status: automated provider behavior is covered; owner-attended MetaMask-compatib
 | Expired review | Leave a preparation open for more than 20 seconds | Review becomes expired and cannot open the wallet; prepare again is required | Unit/browser behavior; real extension pending |
 | Disconnect | Use the app disconnect control | Portfolio/recommendation return to disconnected state; no old address data remains actionable | Unit/browser behavior; real extension pending |
 | Account switch | Switch accounts after preparation | Final context guard refuses the old preparation | Unit coverage; real extension pending |
+| Reload verification | Reload after connecting | The application does not silently choose a different extension; the selected provider must be verified again before `READY` | Automated fail-closed configuration; real extension pending |
 | No signing while disabled | Inspect extension activity throughout connect, switch and both preparations | Account permission and chain-switch prompts may occur; no message signature, approval, transaction or `eth_sendTransaction` request occurs | Manual network/extension evidence pending |
 
 ## Evidence classification

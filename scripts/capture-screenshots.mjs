@@ -26,6 +26,10 @@ try {
       await page.goto(`${baseUrl}${pathname}`, { waitUntil: 'networkidle' });
       await page.screenshot({ fullPage: true, path: new URL(`${routeName}-${viewportName}.png`, outputDirectory).pathname });
     }
+    await page.goto(`${baseUrl}/desk`, { waitUntil: 'networkidle' });
+    await page.getByRole('button', { name: /Connect wallet/ }).click();
+    await page.getByRole('dialog', { name: 'Choose a wallet' }).waitFor();
+    await page.screenshot({ path: new URL(`wallet-${viewportName}.png`, outputDirectory).pathname });
     await page.close();
   }
 } finally {

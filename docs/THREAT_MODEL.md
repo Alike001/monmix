@@ -8,7 +8,7 @@ The browser reads public chain state and can connect to an injected wallet. It n
 
 | Threat | Control |
 | --- | --- |
-| Wrong RPC, selected provider, wallet chain or account | Require explicit EIP-6963 wallet selection when multiple extensions are present; compare the active connector's direct `eth_chainId` and `eth_accounts` with wagmi state; require chain 143 independently; bind each preflight and journal record to the checksummed account; clear stale actionable reviews and refuse changes before wallet invocation. |
+| Wrong RPC, selected provider, wallet chain or account | Use one header-owned wallet dialog with explicit EIP-6963 provider selection; compare the active connector's direct `eth_chainId` and `eth_accounts` with wagmi state; require chain 143 independently; identify 1, 42161 and 10143 as wrong networks; bind each preflight and journal record to the checksummed account; clear stale actionable reviews and refuse changes before wallet invocation. |
 | Proxy upgrade or ABI drift | Verify the EIP-1967 implementation address and runtime bytecode hash before every preflight. Refuse any change pending review. |
 | Price precision error | Cross-check packed 1e8 prices against x18 BBO and reject >1% disagreement; retain factor-of-ten regression. |
 | Stale, malformed or empty market | Reject stale block timestamps, malformed packed words, zero/one-sided books and insufficient full-fill depth. |
