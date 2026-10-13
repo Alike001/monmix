@@ -16,6 +16,12 @@ export const KURU_DIRECT_ORDER_ABI = parseAbi([
 
 export const ERC20_READ_ABI = parseAbi([
   'function balanceOf(address owner) view returns (uint256)',
+  'function allowance(address owner, address spender) view returns (uint256)',
   'function decimals() view returns (uint8)',
   'function symbol() view returns (string)',
+]);
+
+export const ERC20_APPROVAL_ABI = parseAbi([
+  'function approve(address spender, uint256 amount) returns (bool)',
+  'event Approval(address indexed owner, address indexed spender, uint256 value)',
 ]);

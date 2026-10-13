@@ -29,6 +29,7 @@ export type PreflightFailureCode =
   | 'BELOW_MARKET_MINIMUM'
   | 'ABOVE_MARKET_MAXIMUM'
   | 'INSUFFICIENT_MON'
+  | 'INSUFFICIENT_USDC'
   | 'SIMULATION_FAILED';
 
 export class PreflightError extends Error {
@@ -61,6 +62,7 @@ export interface NativeSellPreparation {
   walletBalanceWei: bigint;
   walletQuoteBalanceAtoms: bigint;
   bestBidX18: bigint;
+  valuationPriceX18: bigint;
   estimatedPriceImpactBps: bigint;
   takerFeeBps: bigint;
   fillOrKill: true;
@@ -88,6 +90,7 @@ export type NativeSellPreparationDto = {
   walletBalanceWei: string;
   walletQuoteBalanceAtoms: string;
   bestBidX18: string;
+  valuationPriceX18: string;
   estimatedPriceImpactBps: string;
   takerFeeBps: string;
   fillOrKill: true;
@@ -224,6 +227,7 @@ export async function prepareNativeMarketSell(
       expectedQuoteAtoms, minimumQuoteAtoms, slippageBps: input.slippageBps,
       gasEstimate, gasPriceWei, maximumGasCostWei, walletBalanceWei,
       walletQuoteBalanceAtoms: walletBalances.usdc, bestBidX18: snapshot.bestBidX18, estimatedPriceImpactBps,
+      valuationPriceX18: snapshot.midpointX18,
       takerFeeBps: snapshot.params.takerFeeBps, fillOrKill: true, isMargin: false, fingerprint,
     };
   } catch (error) {

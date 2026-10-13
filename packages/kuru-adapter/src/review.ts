@@ -61,6 +61,9 @@ export function buildReadOnlyReview(
   }
 
   if (remaining > 0n) return { status: 'BLOCK', code: 'INSUFFICIENT_DEPTH' };
+  if (side === 'BUY_BASE' && estimatedBaseAtoms < minimumBaseAtoms) {
+    return { status: 'BLOCK', code: 'BELOW_MARKET_MINIMUM' };
+  }
   return {
     status: 'REVIEW',
     side,

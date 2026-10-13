@@ -132,6 +132,10 @@ test('read-only review walks real precision-shaped depth and refuses insufficien
     status: 'BLOCK',
     code: 'BELOW_MARKET_MINIMUM',
   });
+  assert.deepEqual(buildReadOnlyReview(snapshot, 'BUY_BASE', 4_924_400n), {
+    status: 'BLOCK',
+    code: 'BELOW_MARKET_MINIMUM',
+  });
   const review = buildReadOnlyReview(snapshot, 'BUY_BASE', 10_000_000n);
   assert.equal(review.status, 'REVIEW');
   if (review.status === 'REVIEW') {

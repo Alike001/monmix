@@ -3,8 +3,10 @@ import {
   createMonadPublicClient,
   MONAD_MAINNET_CHAIN_ID,
   prepareNativeMarketSell,
+  prepareNativeMarketBuy,
   readMarketSnapshot,
   serializeNativeSellPreparation,
+  serializeNativeBuyPreparation,
   verifyDeployedMarket,
 } from '../src/index.ts';
 
@@ -26,6 +28,13 @@ const preparation = await prepareNativeMarketSell(client, {
   baseAmountAtoms: 200n * 10n ** 18n,
   slippageBps: 50n,
 });
+// Recently active public USDC holder discovered from Transfer logs. Used only for eth_call/read context.
+const buySimulationAccount = '0x7Db99F225Af7A1A21b7b6468Ed28F4bC60FbE937';
+const buyPreparation = await prepareNativeMarketBuy(client, {
+  account: buySimulationAccount,
+  quoteAmountAtoms: 5n * 10n ** 6n,
+  slippageBps: 50n,
+});
 
 console.log(
   JSON.stringify(
@@ -44,6 +53,7 @@ console.log(
       implementation: deployment.implementation,
       implementationCodeHash: deployment.codeHash,
       nativeSellPreflight: serializeNativeSellPreparation(preparation),
+      nativeBuyPreflight: serializeNativeBuyPreparation(buyPreparation),
     },
     null,
     2,
