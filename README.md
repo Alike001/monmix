@@ -1,8 +1,14 @@
 # Monad Strategy Desk
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-10120f.svg)](LICENSE)
+[![Next.js 16](https://img.shields.io/badge/Next.js-16.3.8-10120f.svg)](apps/web/package.json)
+[![Mainnet execution](https://img.shields.io/badge/mainnet%20execution-disabled-d35245.svg)](docs/THREAT_MODEL.md)
+
 Monad Strategy Desk is an owner-controlled spot portfolio strategy product for Monad. A user can inspect Kuru's live MON/USDC order book, connect an injected wallet, read real MON and USDC balances, choose a target allocation and advisory limits, receive a deterministic `WAIT`, `BLOCK`, or `REVIEW`, and prepare a protected Kuru adjustment in either direction.
 
 The user-confirmed native MON sell and exact-approval USDC-to-MON lifecycles are implemented but **disabled by default**. This work did not approve, sign, or broadcast a transaction. It has no backend signer, automation, private-key handling, or contract deployment. TypeScript policy limits bound a recommendation only; they are not independently enforced financial controls.
+
+![Monad Strategy Desk landing page](docs/screenshots/home-desktop.png)
 
 ## Thirty-second journey
 
@@ -15,7 +21,7 @@ The user-confirmed native MON sell and exact-approval USDC-to-MON lifecycles are
 
 ## Run locally
 
-Requirements: Node.js 22.16+ and pnpm 10.34.5+.
+Requirements: Node.js 22.x (the repository pins 22.16.0 for local and CI use) and pnpm 10.34.5.
 
 ```bash
 pnpm install
@@ -35,11 +41,11 @@ pnpm test
 pnpm test:live
 pnpm typecheck
 pnpm lint
-pnpm build
+pnpm build:release
 pnpm test:e2e
 ```
 
-`pnpm test` is deterministic and does not require a network. `pnpm test:live` performs public `eth_call` and block reads only; it never asks for a key or sends a transaction.
+`pnpm verify` runs the production dependency audit, deterministic tests, typecheck, lint, guarded release build, Playwright responsive checks and automated accessibility checks. The release build refuses `NEXT_PUBLIC_ENABLE_MAINNET_EXECUTION=true`. `pnpm test:live` performs public `eth_call` and block reads only; it never asks for a key or sends a transaction.
 
 ## Verified deployment
 
@@ -81,3 +87,5 @@ OpenAI Codex was used for repository research, architecture, implementation, tes
 - Automatic monitoring while the browser is closed is a documented feasibility design only; automation and independently enforced caps remain unavailable.
 
 See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for raw read evidence, [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) for the release safety boundary, and [docs/JUDGE-QUICKSTART.md](docs/JUDGE-QUICKSTART.md) for the shortest review path.
+
+Publishing and deployment remain owner-controlled. See [docs/PUBLISHING-AND-DEPLOYMENT.md](docs/PUBLISHING-AND-DEPLOYMENT.md) for the exact GitHub and Vercel settings and commands; none have been run for this repository.

@@ -16,4 +16,4 @@ The project's minimal Kuru ABIs were independently declared from verified deploy
 
 ## Runtime and development dependencies
 
-The lockfile is the authoritative dependency inventory. Principal direct packages include Next.js, React, wagmi, viem, TanStack Query, TypeScript and ESLint. Each retains its upstream license and copyright notice. No third-party visual assets or web fonts are bundled.
+The lockfile is the authoritative dependency inventory. Principal direct packages include Next.js, React, wagmi, viem, TanStack Query, TypeScript and ESLint. Each retains its upstream license and copyright notice. `pnpm licenses list --prod` is the release inventory check; the observed production license groups were MIT, Apache-2.0, ISC, BSD-3-Clause, 0BSD, CC-BY-4.0 and LGPL-3.0-or-later (the prebuilt libvips component distributed through Next.js/sharp). No third-party visual assets or web fonts are bundled.
