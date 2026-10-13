@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import test from 'node:test';
 
@@ -7,12 +7,13 @@ function json(path: string): Record<string, unknown> {
   return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
 }
 
-test('Vercel uses the repository-root workspace and guarded release build', () => {
-  const config = json('vercel.json');
+test('Vercel app-root configuration uses the workspace and guarded release build', () => {
+  assert.equal(existsSync('vercel.json'), false);
+  const config = json('apps/web/vercel.json');
   assert.equal(config.framework, 'nextjs');
   assert.equal(config.installCommand, 'pnpm install --frozen-lockfile');
-  assert.equal(config.buildCommand, 'pnpm build:release');
-  assert.equal(config.outputDirectory, 'apps/web/.next');
+  assert.equal(config.buildCommand, 'cd ../.. && pnpm build:release');
+  assert.equal(config.outputDirectory, '.next');
 });
 
 test('toolchain versions are pinned for reproducible installs', () => {

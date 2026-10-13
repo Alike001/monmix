@@ -17,8 +17,8 @@
 
 ## Vercel readiness
 
-- [x] Vercel Root Directory is the repository root (`.`), preserving the workspace lockfile and local packages.
-- [x] Root `vercel.json` uses frozen pnpm install, `pnpm build:release`, and publishes `apps/web/.next`.
+- [x] Vercel Root Directory is `apps/web`, with source files outside the Root Directory included for workspace packages and the root lockfile.
+- [x] `apps/web/vercel.json` uses frozen pnpm install, the root `pnpm build:release` guard, and app-relative `.next` output; no conflicting repository-root config exists.
 - [x] Node `22.x` is selected by `package.json`; local/CI baseline is 22.16.0.
 - [x] No database, private key or paid service is required for the read-only release.
 - [x] `MONAD_RPC_URL` may be configured server-side; no secret is exposed with `NEXT_PUBLIC_`.

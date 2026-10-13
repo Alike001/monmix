@@ -4,15 +4,16 @@ GitHub publication is authorized for `Alike001/monmix`. Vercel project linking a
 
 ## Release identity
 
-- Repository root: the directory containing `pnpm-workspace.yaml` and `vercel.json`.
+- Repository root: the directory containing `pnpm-workspace.yaml` and the lockfile.
+- Vercel configuration: `apps/web/vercel.json`, scoped to the configured application root.
 - Node: `22.x`; local and CI baseline `22.16.0`.
 - Package manager: `pnpm@10.34.5` from `packageManager`.
 - Install: `pnpm install --frozen-lockfile`.
-- Build: `pnpm build:release`.
+- Build from `apps/web`: `cd ../.. && pnpm build:release`.
 - Framework: Next.js.
-- Output: `apps/web/.next`.
+- Output relative to the Vercel Root Directory: `.next`.
 - Runtime: Vercel Node functions for `/api/*`; static output for product pages where Next.js permits it.
-- Vercel Root Directory: repository root (`.`), not `apps/web`. This keeps the root lockfile and both workspace packages available.
+- Vercel Root Directory: `apps/web` with **Include source files outside of the Root Directory in the Build Step** enabled. This lets pnpm install the workspace and lets the guarded root build access both local packages.
 - Vercel project name: `monmix`.
 
 ## Required environment configuration
@@ -77,7 +78,7 @@ pnpm dlx vercel@latest login
 pnpm dlx vercel@latest link --project monmix
 ```
 
-During linking, choose the repository root and confirm the detected settings against the release identity above. `.vercel/` is ignored and must not be committed.
+Run the command from the repository root. Confirm the linked project reports Root Directory `apps/web` and the detected settings match the release identity above. `.vercel/` is ignored and must not be committed.
 
 Set the safety gate independently:
 

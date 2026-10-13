@@ -8,7 +8,7 @@ Rebrand the existing tested product as MonMix, publish its preserved Git history
 
 - Next.js App Router lives in `apps/web`; deterministic policy and Kuru integration remain isolated workspace packages.
 - The release build is guarded by `scripts/assert-execution-disabled.mjs`; CI sets `NEXT_PUBLIC_ENABLE_MAINNET_EXECUTION=false`.
-- Vercel builds from the repository root using the frozen pnpm lockfile and outputs `apps/web/.next`.
+- Phase 5B originally prepared a repository-root Vercel config. The linked project now uses Root Directory `apps/web`; the scoped deployment configuration and app-relative `.next` output supersede that earlier assumption.
 - Browser persistence uses `strategy-desk:*` legacy keys. Renaming them would strand saved preferences and transaction recovery, so they are intentionally retained as internal compatibility identifiers.
 - The approved GitHub CLI account resolved to `Alike001`; `Alike001/monmix` did not exist at the initial check.
 
