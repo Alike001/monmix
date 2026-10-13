@@ -229,6 +229,13 @@ button { cursor: pointer; }
 .strategy-health > div { display: grid; gap: 5px; padding: 12px; background: #f7f5ee; }
 .strategy-health span { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
 .strategy-health strong { font-size: 12px; line-height: 1.35; }
+.allowance-recovery { display: grid; gap: 16px; }
+.allowance-recovery > .button { justify-self: start; }
+.allowance-status { display: grid; gap: 10px; padding: 16px; border-radius: 12px; background: #f7f5ee; border: 1px solid var(--line); }
+.allowance-status > span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+.allowance-status > strong { font-size: 20px; }
+.allowance-status > p { margin: 0; color: var(--muted); }
+.allowance-status > .button { justify-self: start; }
 .review-metric.important { margin: 0 -10px; padding: 10px; border: 0; border-radius: 9px; background: var(--acid); color: var(--ink); }
 .review-metric.important span { color: #3d471e; }
 .market-requirement { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; margin: 18px 0; padding: 15px; border: 1px solid var(--line); border-radius: 12px; }

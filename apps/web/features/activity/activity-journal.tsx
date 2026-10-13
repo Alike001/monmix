@@ -6,7 +6,8 @@ import { decodeKuruTrades, hasExactApprovalEvent, MONAD_EXPLORER_URL, readWallet
 import { formatCompactAtoms } from '@/lib/format';
 import { publicClient } from '@/lib/public-client';
 import Link from 'next/link';
-import { portfolioAllocationBps, readJournal, updateJournalRecord, type JournalRecord } from '@/lib/transaction-journal';
+import { isProtectedTradeOutcome, portfolioAllocationBps, readJournal, updateJournalRecord, type JournalRecord } from '@/lib/transaction-journal';
+import { AllowanceRecovery } from './allowance-recovery';
 
 export function ActivityJournal() {
   const [records, setRecords] = useState<JournalRecord[]>([]);
@@ -28,7 +29,7 @@ export function ActivityJournal() {
           updateJournalRecord(window.localStorage, record.id, { status: 'REVERTED', blockNumber: receipt.blockNumber.toString() });
           continue;
         }
-        if (record.action === 'APPROVE_USDC') {
+        if (record.action === 'APPROVE_USDC' || record.action === 'REVOKE_USDC') {
           const exact = record.approvalSpender && record.approvalAmountAtoms && hasExactApprovalEvent(receipt.logs, record.account, record.approvalSpender, BigInt(record.approvalAmountAtoms));
           updateJournalRecord(window.localStorage, record.id, exact ? { status: 'CONFIRMED', blockNumber: receipt.blockNumber.toString(), networkFeeWei: (receipt.gasUsed * receipt.effectiveGasPrice).toString(), reconciledAt: new Date().toISOString() } : { status: 'UNRESOLVED', blockNumber: receipt.blockNumber.toString(), error: 'Receipt has no exact matching USDC Approval event.', reconciledAt: new Date().toISOString() });
           continue;
@@ -44,17 +45,25 @@ export function ActivityJournal() {
         const beforeMon = record.beforeMonAtoms ? BigInt(record.beforeMonAtoms) : null;
         const networkFeeWei = receipt.gasUsed * receipt.effectiveGasPrice;
         const receivedBase = buying && beforeMon !== null && after.mon + networkFeeWei >= beforeMon ? after.mon + networkFeeWei - beforeMon : undefined;
+        const filledSizeRaw = trades.reduce((sum, trade) => sum + trade.filledSizeRaw, 0n);
+        const receivedQuote = !buying && beforeUsdc !== null && after.usdc >= beforeUsdc ? after.usdc - beforeUsdc : undefined;
+        const hasRecordedProtection = buying ? record.minimumBaseAtoms !== undefined : record.sizeRaw !== undefined;
+        const outcomeProven = hasRecordedProtection && isProtectedTradeOutcome({ buying, filledSizeRaw, ...(record.sizeRaw === undefined ? {} : { requestedSizeRaw: BigInt(record.sizeRaw) }), receivedAtoms: buying ? receivedBase : receivedQuote, minimumReceivedAtoms: buying ? BigInt(record.minimumBaseAtoms!) : BigInt(record.minimumQuoteAtoms) });
+        if (!outcomeProven) {
+          updateJournalRecord(window.localStorage, record.id, { status: 'UNRESOLVED', blockNumber: receipt.blockNumber.toString(), filledSizeRaw: filledSizeRaw.toString(), afterMonAtoms: after.mon.toString(), afterUsdcAtoms: after.usdc.toString(), networkFeeWei: networkFeeWei.toString(), reconciledAt: new Date().toISOString(), error: buying ? 'Receipt did not prove a wallet MON increase meeting the protected minimum.' : 'Receipt did not prove the full requested sell size and protected USDC wallet outcome.' });
+          continue;
+        }
         const price = record.valuationPriceX18 ? BigInt(record.valuationPriceX18) : null;
         updateJournalRecord(window.localStorage, record.id, {
           status: 'CONFIRMED',
           blockNumber: receipt.blockNumber.toString(),
-          filledSizeRaw: trades.reduce((sum, trade) => sum + trade.filledSizeRaw, 0n).toString(),
+          filledSizeRaw: filledSizeRaw.toString(),
           afterMonAtoms: after.mon.toString(),
           afterUsdcAtoms: after.usdc.toString(),
           networkFeeWei: networkFeeWei.toString(),
           reconciledAt: new Date().toISOString(),
           ...(price !== null && beforeMon !== null && beforeUsdc !== null ? { beforeAllocationBps: portfolioAllocationBps(beforeMon, beforeUsdc, price).toString(), afterAllocationBps: portfolioAllocationBps(after.mon, after.usdc, price).toString() } : {}),
-          ...(!buying && beforeUsdc !== null && after.usdc >= beforeUsdc ? { receivedQuoteAtoms: (after.usdc - beforeUsdc).toString() } : {}),
+          ...(receivedQuote === undefined ? {} : { receivedQuoteAtoms: receivedQuote.toString() }),
           ...(receivedBase === undefined ? {} : { receivedBaseAtoms: receivedBase.toString() }),
         });
       } catch (error) {
@@ -76,12 +85,14 @@ export function ActivityJournal() {
   if (records.length === 0) {
     return <section className="card record-empty"><div><div className="empty-icon">0</div><span className="eyebrow">No local activity yet</span><h2>Your verified actions will appear here.</h2><p>Start at the strategy desk to review your portfolio. Simulations do not create trade history, and execution is currently disabled.</p><Link className="button small" href="/desk">Open strategy desk</Link><p className="empty-footnote">This is history from this browser only—not a complete wallet or Kuru account history.</p></div></section>;
   }
+  const allowanceAccounts = [...new Set(records.filter((record) => ['BUY_MON', 'APPROVE_USDC', 'REVOKE_USDC'].includes(record.action ?? '')).map((record) => record.account))];
   return (
     <section className="activity-stack">
       <div className="activity-toolbar"><span>{records.length} browser record{records.length === 1 ? '' : 's'}</span><button className="button small secondary" type="button" disabled={checking} onClick={reconcile}>{checking ? 'Reconciling…' : 'Reconcile receipts'}</button></div>
+      {allowanceAccounts.map((account) => <AllowanceRecovery key={account} account={account} onJournalChange={() => setRecords(readJournal(window.localStorage))} />)}
       {records.map((record) => <article className="card activity-record" key={record.id}>
         <div className="activity-record-head"><div><span className="eyebrow">{activityEyebrow(record)}</span><h2>{activityTitle(record)}</h2><p>{statusSentence(record)}</p></div><span className={`record-status status-${record.status.toLowerCase()}`}>{record.reconciledAt && record.status === 'CONFIRMED' ? 'RECONCILED' : record.status.replace('_', ' ')}</span></div>
-        {record.action !== 'APPROVE_USDC' ? <div className="activity-outcome"><div><span>Attempted</span><strong>{record.action === 'BUY_MON' ? `${formatCompactAtoms(BigInt(record.quoteAmountAtoms ?? '0'), 6, 6)} USDC` : `${formatCompactAtoms(BigInt(record.baseAmountAtoms), 18, 6)} MON`}</strong></div><div><span>Received</span><strong>{record.action === 'BUY_MON' ? record.receivedBaseAtoms ? `${formatCompactAtoms(BigInt(record.receivedBaseAtoms), 18, 6)} MON` : 'Not yet verified' : record.receivedQuoteAtoms ? `${formatCompactAtoms(BigInt(record.receivedQuoteAtoms), 6, 6)} USDC` : 'Not yet verified'}</strong></div><div><span>Protected minimum</span><strong>{record.action === 'BUY_MON' ? `${formatCompactAtoms(BigInt(record.minimumBaseAtoms ?? '0'), 18, 6)} MON` : `${formatCompactAtoms(BigInt(record.minimumQuoteAtoms), 6, 6)} USDC`}</strong></div></div> : <div className="activity-outcome"><div><span>Approval amount</span><strong>{formatCompactAtoms(BigInt(record.approvalAmountAtoms ?? '0'), 6, 6)} USDC</strong></div><div><span>Spender</span><strong>Kuru market</strong></div><div><span>Trade</span><strong>Not included</strong></div></div>}
+        {!['APPROVE_USDC', 'REVOKE_USDC'].includes(record.action ?? '') ? <div className="activity-outcome"><div><span>Attempted</span><strong>{record.action === 'BUY_MON' ? `${formatCompactAtoms(BigInt(record.quoteAmountAtoms ?? '0'), 6, 6)} USDC` : `${formatCompactAtoms(BigInt(record.baseAmountAtoms), 18, 6)} MON`}</strong></div><div><span>Received</span><strong>{record.action === 'BUY_MON' ? record.receivedBaseAtoms ? `${formatCompactAtoms(BigInt(record.receivedBaseAtoms), 18, 6)} MON` : 'Not yet verified' : record.receivedQuoteAtoms ? `${formatCompactAtoms(BigInt(record.receivedQuoteAtoms), 6, 6)} USDC` : 'Not yet verified'}</strong></div><div><span>Protected minimum</span><strong>{record.action === 'BUY_MON' ? `${formatCompactAtoms(BigInt(record.minimumBaseAtoms ?? '0'), 18, 6)} MON` : `${formatCompactAtoms(BigInt(record.minimumQuoteAtoms), 6, 6)} USDC`}</strong></div></div> : <div className="activity-outcome"><div><span>{record.action === 'REVOKE_USDC' ? 'Target allowance' : 'Approval amount'}</span><strong>{formatCompactAtoms(BigInt(record.approvalAmountAtoms ?? '0'), 6, 6)} USDC</strong></div><div><span>Spender</span><strong>Kuru market</strong></div><div><span>Trade</span><strong>Not included</strong></div></div>}
         {record.beforeMonAtoms && record.afterMonAtoms ? <div className="allocation-change"><span>Wallet MON</span><strong>{formatCompactAtoms(BigInt(record.beforeMonAtoms), 18, 4)} → {formatCompactAtoms(BigInt(record.afterMonAtoms), 18, 4)}</strong></div> : null}
         {record.beforeUsdcAtoms && record.afterUsdcAtoms ? <div className="allocation-change"><span>Wallet USDC</span><strong>{formatCompactAtoms(BigInt(record.beforeUsdcAtoms), 6, 4)} → {formatCompactAtoms(BigInt(record.afterUsdcAtoms), 6, 4)}</strong></div> : null}
         {record.beforeAllocationBps && record.afterAllocationBps ? <div className="allocation-change"><span>MON allocation · preparation price</span><strong>{formatCompactAtoms(BigInt(record.beforeAllocationBps), 2, 2)}% → {formatCompactAtoms(BigInt(record.afterAllocationBps), 2, 2)}%</strong></div> : null}
@@ -96,6 +107,7 @@ export function ActivityJournal() {
 
 function statusSentence(record: JournalRecord): string {
   if (record.status === 'PREPARED') return 'Prepared from fresh market data, but no wallet request was made.';
+  if (record.status === 'CONFIRMED' && record.action === 'REVOKE_USDC') return 'Confirmed on Monad with an exact zero-value USDC Approval event. No trade was included.';
   if (record.status === 'CONFIRMED' && record.action === 'APPROVE_USDC') return 'Confirmed on Monad with the exact expected USDC Approval event. No trade was included.';
   if (record.status === 'CONFIRMED') return 'Confirmed on Monad with a matching Kuru Trade event.';
   if (record.status === 'REVERTED') return 'The chain confirmed that this transaction reverted.';
@@ -108,11 +120,13 @@ function statusSentence(record: JournalRecord): string {
 function activityEyebrow(record: JournalRecord): string {
   if (record.action === 'BUY_MON') return 'USDC → MON on Kuru';
   if (record.action === 'APPROVE_USDC') return 'Exact USDC approval';
+  if (record.action === 'REVOKE_USDC') return 'USDC allowance revocation';
   return 'MON → USDC on Kuru';
 }
 
 function activityTitle(record: JournalRecord): string {
   if (record.action === 'BUY_MON') return `Buy MON with ${formatCompactAtoms(BigInt(record.quoteAmountAtoms ?? '0'), 6, 6)} USDC`;
   if (record.action === 'APPROVE_USDC') return `Approve ${formatCompactAtoms(BigInt(record.approvalAmountAtoms ?? '0'), 6, 6)} USDC`;
+  if (record.action === 'REVOKE_USDC') return 'Revoke Kuru USDC allowance';
   return `Sell ${formatCompactAtoms(BigInt(record.baseAmountAtoms), 18, 6)} MON`;
 }

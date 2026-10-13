@@ -30,6 +30,7 @@ export type PreflightFailureCode =
   | 'ABOVE_MARKET_MAXIMUM'
   | 'INSUFFICIENT_MON'
   | 'INSUFFICIENT_USDC'
+  | 'NO_ALLOWANCE'
   | 'SIMULATION_FAILED';
 
 export class PreflightError extends Error {

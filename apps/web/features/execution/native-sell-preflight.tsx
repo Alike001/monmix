@@ -19,8 +19,11 @@ import {
   portfolioAllocationBps,
   updateJournalRecord,
   walletFailureStatus,
+  isProtectedTradeOutcome,
 } from '@/lib/transaction-journal';
 import { assertWalletExecutionContext } from '@/lib/wallet-state';
+import { assertSellRevalidation } from '@/lib/execution-review';
+import { useNowSeconds } from '@/lib/use-now-seconds';
 
 type PreflightState =
   | { kind: 'idle' }
@@ -36,6 +39,7 @@ export function NativeSellPreflight({ account, baseAmountAtoms }: { account: Add
   const [state, setState] = useState<PreflightState>({ kind: 'idle' });
   const [executionMessage, setExecutionMessage] = useState('');
   const inFlight = useRef(false);
+  const nowSeconds = useNowSeconds();
 
   async function requestPreflight(): Promise<NativeSellPreparationDto> {
     const response = await fetch('/api/preflight/sell', {
@@ -64,6 +68,7 @@ export function NativeSellPreflight({ account, baseAmountAtoms }: { account: Add
       recordPreparedAction(window.localStorage, {
         fingerprint: preparation.fingerprint, action: 'SELL_MON', account: preparation.account, chainId: 143,
         marketAddress: preparation.marketAddress, baseAmountAtoms: preparation.baseAmountAtoms,
+        sizeRaw: preparation.sizeRaw,
         minimumQuoteAtoms: preparation.minimumQuoteAtoms, expectedQuoteAtoms: preparation.expectedQuoteAtoms,
         beforeMonAtoms: preparation.walletBalanceWei, beforeUsdcAtoms: preparation.walletQuoteBalanceAtoms,
         valuationPriceX18: preparation.valuationPriceX18,
@@ -84,12 +89,16 @@ export function NativeSellPreflight({ account, baseAmountAtoms }: { account: Add
     let journalId: string | undefined;
     let hash: `0x${string}` | undefined;
     try {
+      if (BigInt(state.preparation.expiresAtSeconds) <= BigInt(Math.floor(Date.now() / 1000))) {
+        throw new Error('The reviewed sell expired. Run a new simulation before opening the wallet.');
+      }
       if (connection.status !== 'connected' || !connection.address || connection.chainId !== MONAD_MAINNET_CHAIN_ID) {
         throw new Error('Wallet account or network changed. Reconnect and simulate again.');
       }
       const fresh = await requestPreflight();
       const now = BigInt(Math.floor(Date.now() / 1000));
       assertWalletExecutionContext(connection, fresh, now);
+      assertSellRevalidation(state.preparation, fresh);
       const journal = beginJournalRecord(window.localStorage, {
         fingerprint: fresh.fingerprint,
         action: 'SELL_MON',
@@ -97,6 +106,7 @@ export function NativeSellPreflight({ account, baseAmountAtoms }: { account: Add
         chainId: 143,
         marketAddress: fresh.marketAddress,
         baseAmountAtoms: fresh.baseAmountAtoms,
+        sizeRaw: fresh.sizeRaw,
         minimumQuoteAtoms: fresh.minimumQuoteAtoms,
         expectedQuoteAtoms: fresh.expectedQuoteAtoms,
         beforeMonAtoms: fresh.walletBalanceWei,
@@ -104,7 +114,7 @@ export function NativeSellPreflight({ account, baseAmountAtoms }: { account: Add
         valuationPriceX18: fresh.valuationPriceX18,
       });
       journalId = journal.id;
-      setExecutionMessage('Awaiting explicit confirmation in your wallet. Do not confirm unexpected values.');
+      setExecutionMessage('Awaiting explicit confirmation in your wallet. Kuru has no onchain deadline—reject the request if you delay or see unexpected values.');
       hash = await writeContractAsync({
         account: fresh.account,
         chainId: 143,
@@ -131,6 +141,11 @@ export function NativeSellPreflight({ account, baseAmountAtoms }: { account: Add
       const filledSizeRaw = trades.reduce((sum, trade) => sum + trade.filledSizeRaw, 0n);
       const after = await readWalletBalances(publicClient, fresh.account);
       const received = after.usdc >= BigInt(fresh.walletQuoteBalanceAtoms) ? after.usdc - BigInt(fresh.walletQuoteBalanceAtoms) : undefined;
+      if (!isProtectedTradeOutcome({ buying: false, filledSizeRaw, requestedSizeRaw: BigInt(fresh.sizeRaw), receivedAtoms: received, minimumReceivedAtoms: BigInt(fresh.minimumQuoteAtoms) })) {
+        updateJournalRecord(window.localStorage, journal.id, { status: 'UNRESOLVED', blockNumber: receipt.blockNumber.toString(), filledSizeRaw: filledSizeRaw.toString(), afterMonAtoms: after.mon.toString(), afterUsdcAtoms: after.usdc.toString(), networkFeeWei: (receipt.gasUsed * receipt.effectiveGasPrice).toString(), error: 'Receipt did not prove the full requested sell size and protected USDC wallet outcome.' });
+        setExecutionMessage('Receipt succeeded, but the full protected sell outcome was not proven. Marked unresolved.');
+        return;
+      }
       updateJournalRecord(window.localStorage, journal.id, { status: 'CONFIRMED', blockNumber: receipt.blockNumber.toString(), filledSizeRaw: filledSizeRaw.toString(), networkFeeWei: (receipt.gasUsed * receipt.effectiveGasPrice).toString(), afterMonAtoms: after.mon.toString(), afterUsdcAtoms: after.usdc.toString(), beforeAllocationBps: portfolioAllocationBps(BigInt(fresh.walletBalanceWei), BigInt(fresh.walletQuoteBalanceAtoms), BigInt(fresh.valuationPriceX18)).toString(), afterAllocationBps: portfolioAllocationBps(after.mon, after.usdc, BigInt(fresh.valuationPriceX18)).toString(), ...(received === undefined ? {} : { receivedQuoteAtoms: received.toString() }) });
       window.dispatchEvent(new Event('strategy-desk:balances-stale'));
       setExecutionMessage(`Confirmed with ${trades.length} verified Kuru fill event${trades.length === 1 ? '' : 's'}.`);
@@ -155,13 +170,13 @@ export function NativeSellPreflight({ account, baseAmountAtoms }: { account: Add
       </div>
       <p className="supporting-copy">Re-reads the proxy, order book, balance and gas; then simulates a 0.50% protected, fill-or-kill native MON sell. Simulation never signs or broadcasts.</p>
       {state.kind === 'error' ? <div className="notice danger"><strong>{state.code}</strong><br />{state.message}</div> : null}
-      {state.kind === 'ready' ? <PreparedReview value={state.preparation} receivedAtSeconds={state.receivedAtSeconds} onExecute={execute} executionMessage={executionMessage} /> : null}
+      {state.kind === 'ready' ? <PreparedReview value={state.preparation} nowSeconds={nowSeconds} onExecute={execute} executionMessage={executionMessage} /> : null}
     </section>
   );
 }
 
-function PreparedReview({ value, receivedAtSeconds, onExecute, executionMessage }: { value: NativeSellPreparationDto; receivedAtSeconds: bigint; onExecute: () => void; executionMessage: string }) {
-  const freshness = quoteFreshness(BigInt(value.expiresAtSeconds), receivedAtSeconds);
+function PreparedReview({ value, nowSeconds, onExecute, executionMessage }: { value: NativeSellPreparationDto; nowSeconds: bigint; onExecute: () => void; executionMessage: string }) {
+  const freshness = quoteFreshness(BigInt(value.expiresAtSeconds), nowSeconds);
   return (
     <div className="prepared-review">
       <div className="review-metrics">
@@ -176,8 +191,8 @@ function PreparedReview({ value, receivedAtSeconds, onExecute, executionMessage 
       </div>
       <details><summary>Contract evidence</summary><div className="evidence-list compact-evidence"><div className="evidence-row"><span>Market</span><strong>{value.marketAddress}</strong></div><div className="evidence-row"><span>Implementation</span><strong>{value.implementationAddress}</strong></div><div className="evidence-row"><span>Code hash</span><strong>{value.implementationCodeHash}</strong></div><div className="evidence-row"><span>Failure conditions</span><strong>quote expiry, account/network change, insufficient MON or gas, proxy upgrade, stale book, inadequate full-fill liquidity, output below minimum</strong></div></div></details>
       <div className="execution-gate">
-        <button className="button" type="button" onClick={onExecute} disabled={!EXECUTION_ENABLED}>{EXECUTION_ENABLED ? 'Revalidate and confirm in wallet' : 'Mainnet execution disabled'}</button>
-        <span>{EXECUTION_ENABLED ? 'A fresh simulation runs again before the wallet opens.' : 'Owner approval and NEXT_PUBLIC_ENABLE_MAINNET_EXECUTION=true are both required.'}</span>
+        <button className="button" type="button" onClick={onExecute} disabled={!EXECUTION_ENABLED || freshness !== 'FRESH'}>{EXECUTION_ENABLED ? freshness === 'FRESH' ? 'Revalidate and confirm in wallet' : 'Prepare a fresh review' : 'Mainnet execution disabled'}</button>
+        <span>{freshness === 'EXPIRED' ? 'This browser review expired. Kuru itself does not enforce that expiry.' : EXECUTION_ENABLED ? 'A fresh simulation must preserve or improve the reviewed output and gas ceilings.' : 'Owner approval and NEXT_PUBLIC_ENABLE_MAINNET_EXECUTION=true are both required.'}</span>
       </div>
       {executionMessage ? <div className="notice">{executionMessage}</div> : null}
     </div>

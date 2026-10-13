@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useConnect, useConnection, useConnectors, useDisconnect, useSwitchChain } from 'wagmi';
 import { MONAD_MAINNET_CHAIN_ID } from '@monad-strategy/kuru-adapter';
 import { getWalletReadiness } from '@/lib/wallet-state';
@@ -14,6 +15,13 @@ export function ConnectWallet({ compact = false }: { compact?: boolean }) {
   const { connect, error: connectError, isPending } = useConnect();
   const { disconnect } = useDisconnect();
   const { switchChain, error: switchError, isPending: isSwitching } = useSwitchChain();
+  const [providerReady, setProviderReady] = useState(false);
+  const connector = connectors[0];
+  useEffect(() => {
+    let active = true;
+    void connector?.getProvider().then((provider) => { if (active) setProviderReady(Boolean(provider)); });
+    return () => { active = false; };
+  }, [connector]);
   const readiness = getWalletReadiness(
     connection.status,
     connection.chainId,
@@ -49,17 +57,17 @@ export function ConnectWallet({ compact = false }: { compact?: boolean }) {
     );
   }
 
-  const connector = connectors[0];
   return (
     <div className={`wallet-control ${compact ? 'compact' : ''}`}>
       <button
         className="button small"
         type="button"
-        disabled={!connector || isPending}
+        disabled={!connector || !providerReady || isPending}
         onClick={() => connector && connect({ connector, chainId: MONAD_MAINNET_CHAIN_ID })}
       >
-        {isPending ? 'Connecting…' : 'Connect wallet'}
+        {isPending ? 'Connecting…' : providerReady ? 'Connect wallet' : 'Wallet not detected'}
       </button>
+      {!providerReady && !compact ? <small>Open this page in a browser with a MetaMask-compatible injected wallet.</small> : null}
       {connectError ? <small>{connectError.message}</small> : null}
     </div>
   );

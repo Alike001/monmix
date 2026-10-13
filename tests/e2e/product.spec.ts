@@ -68,6 +68,18 @@ for (const width of [375, 390, 768]) {
     expect(footer!.y + footer!.height).toBeLessThanOrEqual(nav!.y + 1);
     await expect(page.getByText('Method & limits')).toBeVisible();
   });
+
+  test(`mobile activity action can scroll fully above navigation at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: width === 768 ? 1024 : 812 });
+    await page.goto('/activity');
+    const action = page.getByRole('link', { name: 'Open strategy desk' });
+    await action.scrollIntoViewIfNeeded();
+    const nav = await page.locator('nav[aria-label="Primary navigation"]').boundingBox();
+    const actionBox = await action.boundingBox();
+    expect(nav).not.toBeNull();
+    expect(actionBox).not.toBeNull();
+    expect(actionBox!.y + actionBox!.height).toBeLessThanOrEqual(nav!.y);
+  });
 }
 
 test('activity presents ordinary-language outcome and keeps raw evidence collapsed', async ({ page }) => {
@@ -103,8 +115,25 @@ test('prepared buy is clearly unsigned and distinct from a completed trade', asy
   await expect(page.getByRole('link', { name: /View transaction/ })).toHaveCount(0);
 });
 
-test('mocked injected wallet reaches a truthful protected buy preparation without enabling a write', async ({ page }) => {
+test('mocked injected wallet reaches a protected buy preparation without enabling a write', async ({ page }) => {
   const account = '0x7Db99F225Af7A1A21b7b6468Ed28F4bC60FbE937';
+  const market = '0x065C9d28E428A0db40191a54d33d5b7c71a9C394';
+  const usdc = '0x754704Bc059F8C67012fEd69BC8A327a5aafb603';
+  await page.route('**/api/market', (route) => route.fulfill({ json: { ok: true, snapshot: {
+    chainId: 143, marketAddress: market,
+    params: { pricePrecision: '100000000', sizePrecision: '10000000000', baseAssetAddress: '0x0000000000000000000000000000000000000000', baseAssetDecimals: '18', quoteAssetAddress: usdc, quoteAssetDecimals: '6', tickSize: '100', minSize: '2000000000000', maxSize: '2000000000000000000', takerFeeBps: '0', makerFeeBps: '0' },
+    book: { blockNumber: '123', bids: [{ priceRaw: '2400000', sizeRaw: '1000000000000000' }], asks: [{ priceRaw: '2410000', sizeRaw: '1000000000000000' }] },
+    bestBidX18: '24000000000000000', bestAskX18: '24100000000000000', midpointX18: '24050000000000000', observedAtSeconds: '1000', ageSeconds: '1', status: 'LIVE',
+  } } }));
+  await page.route('**/api/balances?**', (route) => route.fulfill({ json: { ok: true, mon: '0', usdc: '1000000000' } }));
+  await page.route('**/api/preflight/buy', (route) => route.fulfill({ json: { ok: true, preparation: {
+    chainId: 143, account, marketAddress: market, quoteTokenAddress: usdc, approvalSpender: market,
+    implementationAddress: '0x5e3446c600524Be453bbCEFD46a9E4C9bE8899a0', implementationCodeHash: `0x${'12'.repeat(32)}`,
+    blockNumber: '123', observedAtSeconds: Math.floor(Date.now() / 1000).toString(), expiresAtSeconds: (Math.floor(Date.now() / 1000) + 20).toString(),
+    requestedQuoteAtoms: '15000000', quoteAmountAtoms: '15000000', quoteSizeRaw: '1500000000', expectedBaseAtoms: '622000000000000000000', minimumBaseAtoms: '618890000000000000000', declaredMinimumBaseAtoms: '200000000000000000000', slippageBps: '50',
+    walletMonBalanceWei: '1000000000000000000', walletQuoteBalanceAtoms: '1000000000', currentAllowanceAtoms: '0', approvalRequired: true, approvalAmountAtoms: '15000000', approvalGasEstimate: '88000', buyGasEstimate: null, gasPriceWei: '102000000000', maximumApprovalGasCostWei: '8976000000000000', maximumBuyGasCostWei: null,
+    bestAskX18: '24100000000000000', valuationPriceX18: '24050000000000000', estimatedPriceImpactBps: '0', takerFeeBps: '0', fillOrKill: true, isMargin: false, exactBuySimulationPassed: false, fingerprint: `0x${'56'.repeat(32)}`,
+  } } }));
   await page.addInitScript(({ injectedAccount }) => {
     const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
     const provider = {

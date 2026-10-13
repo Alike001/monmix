@@ -4,6 +4,7 @@ import {
   MONAD_MAINNET_CHAIN_ID,
   prepareNativeMarketSell,
   prepareNativeMarketBuy,
+  readUsdcAllowanceStatus,
   readMarketSnapshot,
   serializeNativeSellPreparation,
   serializeNativeBuyPreparation,
@@ -39,6 +40,7 @@ const buyPreparation = await prepareNativeMarketBuy(client, {
   quoteAmountAtoms: minimumQuoteAtBestAskAtoms * 2n + 1n,
   slippageBps: 50n,
 });
+const allowanceStatus = await readUsdcAllowanceStatus(client, buySimulationAccount);
 
 console.log(
   JSON.stringify(
@@ -58,6 +60,7 @@ console.log(
       implementationCodeHash: deployment.codeHash,
       nativeSellPreflight: serializeNativeSellPreparation(preparation),
       nativeBuyPreflight: serializeNativeBuyPreparation(buyPreparation),
+      liveUsdcAllowance: allowanceStatus.allowanceAtoms.toString(),
     },
     null,
     2,

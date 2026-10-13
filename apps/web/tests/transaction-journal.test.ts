@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { beginJournalRecord, portfolioAllocationBps, readJournal, recordPreparedAction, updateJournalRecord, walletFailureStatus } from '../lib/transaction-journal.ts';
+import { beginJournalRecord, isProtectedTradeOutcome, portfolioAllocationBps, readJournal, recordPreparedAction, updateJournalRecord, walletFailureStatus } from '../lib/transaction-journal.ts';
 
 function memoryStorage() {
   const data = new Map<string, string>();
@@ -20,8 +20,21 @@ test('journal writes before wallet and prevents duplicate active submissions', (
   const storage = memoryStorage();
   const record = beginJournalRecord(storage, input, new Date('2026-10-13T10:00:00Z'));
   assert.equal(readJournal(storage)[0]?.status, 'AWAITING_WALLET');
-  assert.throws(() => beginJournalRecord(storage, input), /already awaiting/);
+  assert.throws(() => beginJournalRecord(storage, input), /already has an action/);
   updateJournalRecord(storage, record.id, { status: 'REJECTED', error: 'User rejected' });
+  assert.doesNotThrow(() => beginJournalRecord(storage, input));
+});
+
+test('journal serializes an account even when a newer block changes the fingerprint', () => {
+  const storage = memoryStorage();
+  beginJournalRecord(storage, input);
+  assert.throws(() => beginJournalRecord(storage, { ...input, fingerprint: `0x${'34'.repeat(32)}` }), /already has an action/);
+});
+
+test('malformed persisted addresses are discarded before duplicate checks', () => {
+  const storage = memoryStorage();
+  storage.setItem('strategy-desk:transaction-journal:v1', JSON.stringify([{ ...input, id: 'tampered', status: 'BROADCAST', account: 'not-an-address', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }]));
+  assert.deepEqual(readJournal(storage), []);
   assert.doesNotThrow(() => beginJournalRecord(storage, input));
 });
 
@@ -92,4 +105,11 @@ test('missing and reverted receipts remain distinct durable terminal evidence', 
 test('portfolio allocation uses bigint atoms and rounds down deterministically', () => {
   assert.equal(portfolioAllocationBps(200n * 10n ** 18n, 5_000_000n, 25_000_000_000_000_000n), 5_000n);
   assert.equal(portfolioAllocationBps(0n, 0n, 25_000_000_000_000_000n), 0n);
+});
+
+test('receipt outcome proof requires protected output and the full sell size', () => {
+  assert.equal(isProtectedTradeOutcome({ buying: false, filledSizeRaw: 2_000n, requestedSizeRaw: 2_000n, receivedAtoms: 4_800_000n, minimumReceivedAtoms: 4_776_000n }), true);
+  assert.equal(isProtectedTradeOutcome({ buying: false, filledSizeRaw: 1_999n, requestedSizeRaw: 2_000n, receivedAtoms: 4_800_000n, minimumReceivedAtoms: 4_776_000n }), false);
+  assert.equal(isProtectedTradeOutcome({ buying: true, filledSizeRaw: 2_000n, receivedAtoms: 199n, minimumReceivedAtoms: 200n }), false);
+  assert.equal(isProtectedTradeOutcome({ buying: true, filledSizeRaw: 2_000n, receivedAtoms: 200n, minimumReceivedAtoms: 200n }), true);
 });

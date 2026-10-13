@@ -6,7 +6,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'Monad Strategy Desk',
-  description: 'A read-only target-allocation desk using live Kuru MON/USDC data.',
+  description: 'An owner-controlled MON/USDC allocation strategy desk using Monad and Kuru.',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

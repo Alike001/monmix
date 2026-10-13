@@ -1,4 +1,5 @@
 export * from './abi.ts';
+export * from './allowance.ts';
 export * from './buy.ts';
 export * from './addresses.ts';
 export * from './execution.ts';
