@@ -9,6 +9,35 @@ const viewports = [
   { name: 'mobile-375', width: 375, height: 812 },
 ] as const;
 
+test('every public route and internal navigation target resolves', async ({ request }) => {
+  for (const route of routes) {
+    const response = await request.get(route);
+    expect(response.status(), `${route} returned ${response.status()}`).toBe(200);
+  }
+});
+
+test('public routes load without missing same-origin page resources or runtime errors', async ({ page }) => {
+  const failures: string[] = [];
+  page.on('pageerror', (error) => failures.push(`pageerror: ${error.message}`));
+  page.on('requestfailed', (request) => {
+    if (['document', 'script', 'stylesheet', 'image', 'font'].includes(request.resourceType())) {
+      failures.push(`${request.resourceType()}: ${request.url()} (${request.failure()?.errorText ?? 'failed'})`);
+    }
+  });
+  page.on('response', (response) => {
+    const request = response.request();
+    if (new URL(response.url()).origin === 'http://127.0.0.1:3100' &&
+      ['document', 'script', 'stylesheet', 'image', 'font'].includes(request.resourceType()) && response.status() >= 400) {
+      failures.push(`${response.status()}: ${response.url()}`);
+    }
+  });
+  for (const route of routes) {
+    await page.goto(route, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('main h1').first()).toBeVisible();
+  }
+  expect(failures).toEqual([]);
+});
+
 for (const viewport of viewports) {
   test.describe(viewport.name, () => {
     test.use({ viewport: { width: viewport.width, height: viewport.height } });

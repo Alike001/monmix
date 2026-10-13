@@ -8,22 +8,24 @@
   "scripts": {
     "dev": "pnpm --filter @monad-strategy/web dev",
     "build": "pnpm --filter @monad-strategy/web build",
-    "test": "pnpm -r test",
+    "build:release": "node scripts/assert-execution-disabled.mjs && pnpm build",
+    "test": "pnpm -r test && node --experimental-strip-types --test tests/release/*.test.ts",
     "test:live": "pnpm --filter @monad-strategy/kuru-adapter test:live",
     "test:e2e": "playwright test",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint . --max-warnings=0",
-    "verify": "pnpm test && pnpm typecheck && pnpm lint && pnpm build && pnpm test:e2e"
+    "audit:prod": "pnpm audit --prod --audit-level high",
+    "verify": "pnpm audit:prod && pnpm test && pnpm typecheck && pnpm lint && pnpm build:release && pnpm test:e2e"
   },
   "engines": {
-    "node": ">=22.16"
+    "node": "22.x"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.11.0",
     "@playwright/test": "1.61.1",
-    "@types/node": "24.10.1",
+    "@types/node": "22.20.5",
     "eslint": "9.39.1",
-    "eslint-config-next": "16.2.9",
+    "eslint-config-next": "16.3.8",
     "typescript": "6.0.3"
   }
 }

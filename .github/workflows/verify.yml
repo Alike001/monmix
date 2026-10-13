@@ -12,6 +12,8 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_ENABLE_MAINNET_EXECUTION: "false"
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -22,9 +24,10 @@ jobs:
           node-version: 22.16.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm audit:prod
       - run: pnpm test
       - run: pnpm typecheck
       - run: pnpm lint
-      - run: pnpm build
+      - run: pnpm build:release
       - run: pnpm exec playwright install --with-deps chrome
       - run: pnpm test:e2e
