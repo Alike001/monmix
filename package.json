@@ -1,0 +1,9 @@
+{
+  "name": "monad-strategy-domain-proof",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic portfolio plan engine. No keys, trading, or deployment.",
+  "scripts": {"test": "node --experimental-strip-types --test tests/*.test.ts", "example": "node --experimental-strip-types src/example.ts"},
+  "engines": {"node": ">=22.16"}
+}
