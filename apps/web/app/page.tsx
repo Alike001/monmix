@@ -26,7 +26,7 @@ export default function HomePage() {
 
       <section className="card safety-strip">
         <div className="acid"><span className="eyebrow">Honest by construction</span><h2>Ready to verify. Not enabled to spend.</h2><p>The transaction lifecycle is implemented for native MON sells, but its build-time gate is off. A TypeScript preference is never described as an enforced financial restriction.</p></div>
-        <div className="dark-card"><ul className="safety-list"><li>No backend key, automation, token approval, blind retry, or unsigned server-side action.</li><li>Stale prices, wrong accounts, proxy changes, a sub-200 MON action, inadequate liquidity, or failed simulation stop preparation.</li><li>The browser journal shows only wallet requests, hashes, receipts, and verified Kuru Trade events that actually exist.</li></ul></div>
+        <div className="dark-card"><ul className="safety-list"><li>No backend key, automation, blind retry, unlimited approval, or unsigned server-side action.</li><li>Stale prices, wrong accounts, proxy changes, a sub-200 MON result, inadequate liquidity, or failed simulation stop preparation.</li><li>The browser journal distinguishes preparation from wallet requests, hashes, receipts, and verified Kuru events that actually exist.</li></ul></div>
       </section>
     </div>
   );

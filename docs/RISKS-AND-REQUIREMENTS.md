@@ -1,7 +1,7 @@
 # Security, provenance, and hackathon requirements
 
 ## Cannot be claimed yet
-- The read-only Kuru MON/USDC market and injected-wallet balance path are verified, but no executable trading authorization, approval, signed order, transaction, fill or cancellation has been verified.
+- The read-only Kuru MON/USDC market, direct sell/buy preparation and injected-wallet balance path are verified, but no funded approval, signed order, transaction, fill or cancellation has been verified for a project-controlled wallet.
 - Policy evaluation in JS/TS is not an enforceable spending restriction. Do not let server-side policy replace onchain controls when unattended execution is enabled.
 - Kuru's Relay trigger APIs exist in source, but supported trigger schemas, evaluation trust and deployed behavior are unverified.
 - This product has no user interviews or confirmed retention/revenue; do not claim product market fit.

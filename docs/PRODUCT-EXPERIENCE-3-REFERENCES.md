@@ -36,3 +36,10 @@ License and provenance details remain in `THIRD_PARTY_NOTICES.md` and the Phase 
 - Browser preferences remain advisory and local. They are not described as contract-enforced restrictions.
 - The default “ignore below” value is one USDC atom (`$0.000001`), the smallest valid positive Phase 0 policy input. Kuru's live declared minimum therefore remains the practical venue floor, avoiding the old $5 preference incorrectly blocking a valid 200 MON order when MON trades below $0.025.
 - Execution remains build-time disabled. No reference code is used for signing, wallet writes, or transaction handling.
+
+## Phase 4A continuation
+
+- Shijima's portfolio/decision/history hierarchy remains the behavioral reference for the new strategy-health strip and receipt-backed allocation change. The app independently implements this for a two-asset Kuru portfolio; it does not adopt Shijima's agents, contracts or layouts.
+- Masayume's stable ticket and account-gate principles now apply symmetrically to both directions: USDC input, MON estimate, protected MON minimum, allowance state and quote freshness remain together while raw addresses stay expandable.
+- Kuru's direct-buy source was verified independently at `kuru-contracts-dex-public/contracts/OrderBook.sol:724-779`, commit `2060bb2736080c175d80d568bfdb6226bb5abd04`. No Kuru source was copied. The application retains its own minimal ABI and bigint conversion code.
+- Prepared, approval and trade records are distinct. This extends the ordinary-language outcome pattern without presenting a simulation or approval as a fill.

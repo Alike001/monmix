@@ -14,5 +14,9 @@
 | 2026-10-13 | Native sell ABI, native value, min-out and FOK simulation | Pinned SDK/source inspection plus exact live `eth_call` and gas estimate | Verified read-only |
 | 2026-10-13 | Proxy implementation identity | EIP-1967 slot and runtime bytecode hash | Verified and pinned |
 | 2026-10-13 | Transaction lifecycle is implemented but gated off | Source, negative tests, production UI | Verified in code; no funded proof |
-| Future | Approval and user-confirmed Kuru trade | Requires explicit owner approval and transaction receipt | Unverified on mainnet |
+| 2026-10-13 | Direct buy ABI, quote/base units, zero native value, FOK and output bound | Pinned public Kuru contract source plus live read-only quote calls | Verified read-only |
+| 2026-10-13 | USDC identity, decimals, allowance and exact approval spender | Token reads, public-holder allowance read and approval simulation | Verified read-only |
+| 2026-10-13 | Direct buy does not enforce declared `minSize` | Pinned source and tiny read-only quote call; product blocks simulated output below 200 MON | Verified; app fails closed |
+| 2026-10-13 | Buy preparation against a public funded address | `pnpm test:live`: 5 USDC, allowance zero, exact approval simulation, >200 MON quoted output | Verified read-only; address is not controlled by project |
+| Future | Funded approval and user-confirmed Kuru trade | Requires explicit owner approval and transaction receipts | Unverified on mainnet |
 | Future | Enforceable caps and automation | Requires independently enforced authorization and revocation | Unverified / not implemented |

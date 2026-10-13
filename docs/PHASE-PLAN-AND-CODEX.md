@@ -27,7 +27,7 @@
 - Test wrong chain, stale quote, deadline expiry, insufficient gas/margin, partial fill, RPC timeout and user rejection.
 **Exit:** confirmed Monad testnet transaction and verifiable per-order report with recoverable failure flows.
 
-Implementation note: direct native MON sell preparation, wallet guarding, journaling and receipt reconciliation are complete. The remaining exit evidence is an explicitly owner-approved funded mainnet transaction; the deployed market is mainnet and no compatible testnet deployment was asserted. USDC buying remains deferred pending approval validation.
+Implementation note: direct native MON sell and USDC-to-MON buy preparation, wallet guarding, exact-amount approval separation, journaling and receipt reconciliation are complete. The remaining exit evidence is an explicitly owner-approved funded mainnet action; the deployed market is mainnet and no compatible testnet deployment was asserted.
 
 ## Stage 3: Authorized automation (conditional, not automatic)
 - Before signing unattended, prove cryptographically/onchain enforced policy: venue allowlist, max per-order and daily total, order direction, expiry, cancels, withdraw access, pause/revoke.

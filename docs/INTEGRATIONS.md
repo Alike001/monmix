@@ -45,6 +45,31 @@ Fill-or-kill semantics were checked against Kuru's public contract source: any u
 
 The pinned ISC legacy SDK confirms the callable signature and unit conversions. The current Kuru TypeScript SDK targets a different interface generation and is `UNLICENSED`. Neither SDK is imported. The application uses independently declared minimal ABIs compatible with the observed proxy.
 
+## Direct USDC buy
+
+The verified minimal interface is:
+
+```text
+placeAndExecuteMarketBuy(uint96 quoteSize, uint256 minAmountOut, bool isMargin, bool isFillOrKill)
+  payable returns (uint256 baseCredited)
+```
+
+This was checked against `contracts/OrderBook.sol:724-779` in the pinned public Kuru contracts repository at `2060bb2736080c175d80d568bfdb6226bb5abd04` and through live read-only calls:
+
+- `quoteSize` is the USDC input represented at `pricePrecision = 1e8`, not six-decimal token atoms. The adapter normalizes between the two with bigint arithmetic.
+- `minAmountOut` and the return value are native MON atoms at 18 decimals.
+- The configured quote asset is USDC `0x754704Bc059F8C67012fEd69BC8A327a5aafb603`, whose live `decimals()` and `symbol()` returned `6` and `USDC`.
+- The non-margin USDC path requires `msg.value = 0` and calls `safeTransferFrom` from the user to Kuru's margin account. Because the call executes through the proxy, the required approval spender is the market proxy `0x065C...C394`.
+- An unfilled quote remainder reverts when `isFillOrKill = true`; `minAmountOut` is checked against MON credited after matching and taker-fee deduction.
+- `minSize` is not referenced by the direct market-buy function. A one-atom USDC read-only quote therefore succeeds. Strategy Desk nevertheless requires the simulated credited MON to be at least the market's declared 200 MON minimum and offers no bypass.
+
+At block `113071779`, a read-only Phase 4A check for a public address (used only as an `eth_call` sender) normalized `5.000000 USDC` to `500000000` price units and quoted approximately `205.47 MON`. Its allowance was zero, so the exact buy correctly remained pending. The exact `5.000000 USDC` approval call simulated and estimated successfully. This is not approval, signing, broadcast, custody, or funded-project-wallet evidence, and the observed quote is not embedded in application code.
+
+The buy preparation has two honest stages:
+
+1. With insufficient allowance, verify the quote, 200 MON product floor, protected output, token balance, exact allowance deficit and exact approval simulation. Do not claim the exact account-bound buy simulation passed.
+2. After a separately confirmed exact approval, create a new preparation and simulate/estimate the exact account-bound FOK buy. Only that state can become transaction-ready when the execution gate is separately enabled.
+
 ## Reproduce without sending a transaction
 
 ```bash
@@ -55,4 +80,4 @@ cast call 0x065C9d28E428A0db40191a54d33d5b7c71a9C394 \
 pnpm test:live
 ```
 
-`pnpm test:live` reads the market and proxy, performs two `eth_call` simulations for a 200 MON fill-or-kill sell, and estimates gas. It never uses a key or invokes `eth_sendTransaction`.
+`pnpm test:live` reads the market, proxy and USDC token; performs protected sell and buy-side quote calls; simulates the exact required approval; and estimates available gas paths. It never uses a key or invokes `eth_sendTransaction`.

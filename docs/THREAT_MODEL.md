@@ -14,13 +14,16 @@ The browser reads public chain state and can connect to an injected wallet. It n
 | Stale, malformed or empty market | Reject stale block timestamps, malformed packed words, zero/one-sided books and insufficient full-fill depth. |
 | Market-size ambiguity | Normalize token atoms to 1e10 size precision with bigint math; enforce the declared 200 MON minimum even though the direct market-sell path accepts less. |
 | Slippage or partial fill | First simulate for output, round the protected USDC floor down in atoms, then simulate the exact protected call with fill-or-kill true. |
+| Buy unit confusion | Convert six-decimal USDC atoms to 1e8 price-precision units; protect output in 18-decimal MON atoms; require `msg.value = 0`. |
+| Buy below the venue floor | Apply the declared 200 MON floor to simulated MON received. The direct buy does not enforce `minSize`, so the app refuses to use that omission as a bypass. |
+| Excess token authority | Approve only the exact normalized USDC input to the verified market proxy. Approval and buy are separate confirmations; no unlimited approval or automatic follow-up trade. |
 | Quote ageing | Preparations expire after 20 seconds and are recreated immediately before the wallet opens. The contract itself has no deadline, which remains residual risk. |
 | Insufficient balance or gas | Re-read wallet MON, estimate the exact call's gas and require sell value plus the quoted gas cost. Wallet/network fees can still change. |
 | Duplicate action | In-memory click lock plus a persisted fingerprint refuse another active wallet/broadcast record. No automatic transaction retry. |
 | Crash or reload | Write journal before the wallet, persist hash immediately, reconcile receipts on reload, and mark no-hash interruptions unresolved. |
 | False confirmation | Accept success only from a successful receipt with at least one matching Kuru `Trade` event from the configured market/taker. |
 | Misleading records | Simulation never enters activity. Rejected, reverted, unresolved and confirmed are distinct states. |
-| Unbounded authority | No backend key, automation, approval, USDC buy, custom contract or unattended signer. Execution requires a build-time flag plus an explicit wallet confirmation. |
+| Unbounded authority | No backend key, automation, custom contract or unattended signer. Execution requires a build-time flag plus an explicit wallet confirmation; a buy requires a separately confirmed exact approval. |
 
 ## Residual risk
 
@@ -30,4 +33,6 @@ The browser reads public chain state and can connect to an injected wallet. It n
 - Browser local storage is durable convenience, not a canonical cross-device ledger.
 - Daily limits are not reconstructed from all wallet activity and are not independently enforced.
 - Fee fields currently read zero, but gas and future protocol changes can alter total cost.
+- An exact USDC approval remains usable by the verified market until consumed or changed; the app does not claim approval revocation.
+- A buy cannot be simulated as the connected account until its allowance exists. Before approval, only the zero-address quote call and exact approval simulation are verified; the app does not label that state transaction-ready.
 - A real funded receipt and fill remain unverified until the owner separately approves a mainnet trade.
