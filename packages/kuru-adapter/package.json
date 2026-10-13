@@ -1,0 +1,18 @@
+{
+  "name": "@monad-strategy/kuru-adapter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "test:live": "node --experimental-strip-types tests/live-check.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@monad-strategy/domain": "workspace:*",
+    "viem": "2.57.5"
+  }
+}

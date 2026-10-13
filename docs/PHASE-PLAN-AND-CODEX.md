@@ -1,5 +1,7 @@
 # Phase plan and Codex handoff
 
+> Status update, 2026-10-13: Stage 0 and the read-only Stage 1 vertical slice are complete. See `MILESTONES.md` and `EVIDENCE_LEDGER.md` for current evidence. Stages 2–4 remain future gates.
+
 ## Stage 0: Pinned reference review & product boundary (start now)
 - Read SOURCE-IMPLEMENTATION-MAP.md, PRODUCT-SCOPE.md, README.md, policy.ts, tests.
 - Clone *read-only references* into `/references` or a sibling directory on the user's machine, not into the new project's source tree:

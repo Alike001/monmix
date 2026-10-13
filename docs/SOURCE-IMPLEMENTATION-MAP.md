@@ -1,6 +1,8 @@
 # Source review: what to reuse conceptually, and what to implement ourselves
 Reviewed public GitHub default branches October 10, 2026. Interfaces can change; pin SHAs/versions before development.
 
+> Status update, 2026-10-13: pinned SHAs, licenses and deployed read compatibility are recorded in `THIRD_PARTY_NOTICES.md` and `INTEGRATIONS.md`. This document remains the architectural research map.
+
 ## Shijima: financial control and worker
 - `Blockchain-Oracle/shijima/contracts/src/Desk.sol`: owner/operator distinction, per-action/daily spending caps, token and venue allowlists, bounded oracle deviation, pause/withdraw/revoke.
 - `Blockchain-Oracle/shijima/contracts/src/DeskFactory.sol`: per-user isolated desk creation (do not copy chain deployment design uncritically).

@@ -1,9 +1,26 @@
 {
-  "name": "monad-strategy-domain-proof",
-  "version": "0.0.1",
+  "name": "monad-strategy-desk",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Deterministic portfolio plan engine. No keys, trading, or deployment.",
-  "scripts": {"test": "node --experimental-strip-types --test tests/*.test.ts", "example": "node --experimental-strip-types src/example.ts"},
-  "engines": {"node": ">=22.16"}
+  "description": "A read-only Monad portfolio strategy desk using Kuru market data.",
+  "packageManager": "pnpm@10.34.5",
+  "scripts": {
+    "dev": "pnpm --filter @monad-strategy/web dev",
+    "build": "pnpm --filter @monad-strategy/web build",
+    "test": "pnpm -r test",
+    "test:live": "pnpm --filter @monad-strategy/kuru-adapter test:live",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint . --max-warnings=0",
+    "verify": "pnpm test && pnpm typecheck && pnpm lint && pnpm build"
+  },
+  "engines": {
+    "node": ">=22.16"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "eslint": "9.39.1",
+    "eslint-config-next": "16.2.9",
+    "typescript": "6.0.3"
+  }
 }
