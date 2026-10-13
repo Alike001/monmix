@@ -1,5 +1,6 @@
 import {
   createPublicClient,
+  fallback,
   getAddress,
   http,
   type Address,
@@ -11,6 +12,7 @@ import {
   KURU_MON_USDC_MARKET,
   MONAD_EXPLORER_URL,
   MONAD_MAINNET_CHAIN_ID,
+  MONAD_MAINNET_FALLBACK_RPC_URL,
   MONAD_MAINNET_RPC_URL,
   USDC_ADDRESS,
 } from './addresses.ts';
@@ -27,14 +29,23 @@ export const monadMainnet = defineChain({
   id: MONAD_MAINNET_CHAIN_ID,
   name: 'Monad',
   nativeCurrency: { name: 'Monad', symbol: 'MON', decimals: 18 },
-  rpcUrls: { default: { http: [MONAD_MAINNET_RPC_URL] } },
+  rpcUrls: { default: { http: [MONAD_MAINNET_RPC_URL, MONAD_MAINNET_FALLBACK_RPC_URL] } },
   blockExplorers: { default: { name: 'Monadscan', url: MONAD_EXPLORER_URL } },
 });
 
-export function createMonadPublicClient(rpcUrl = MONAD_MAINNET_RPC_URL) {
+export function createMonadPublicClient(
+  rpcUrl?: string,
+  transportOptions: { timeout?: number; retryCount?: number } = {},
+) {
+  const options = {
+    timeout: transportOptions.timeout ?? 8_000,
+    retryCount: transportOptions.retryCount ?? 1,
+  };
   return createPublicClient({
     chain: monadMainnet,
-    transport: http(rpcUrl, { timeout: 8_000, retryCount: 1 }),
+    transport: rpcUrl
+      ? http(rpcUrl, options)
+      : fallback([http(MONAD_MAINNET_RPC_URL, options), http(MONAD_MAINNET_FALLBACK_RPC_URL, options)]),
   });
 }
 
