@@ -13,5 +13,6 @@ Run `pnpm screenshots` while the production application is available at `http://
 | Proof `/proof` | [proof-desktop.png](screenshots/proof-desktop.png) | [proof-mobile.png](screenshots/proof-mobile.png) |
 | Method `/docs` | [docs-desktop.png](screenshots/docs-desktop.png) | [docs-mobile.png](screenshots/docs-mobile.png) |
 | Wallet chooser | [wallet-desktop.png](screenshots/wallet-desktop.png) | [wallet-mobile.png](screenshots/wallet-mobile.png) |
+| Interactive strategy workflow | [workflow-desktop.png](screenshots/workflow-desktop.png) | [workflow-mobile.png](screenshots/workflow-mobile.png) |
 
-The funded mock-wallet regression captures the complete read-only sell simulation panel at 1366px in [sell-simulation-desktop.png](screenshots/sell-simulation-desktop.png). The values are deterministic test fixtures, not a real trade or production-wallet evidence; execution remains disabled.
+The interactive workflow captures use a funded mock wallet and deterministic Kuru-shaped responses to show completed Portfolio, Target, Decision, and Preview states. The values are test fixtures, not a real trade or production-wallet evidence; execution remains disabled. The earlier focused simulation capture remains available at [sell-simulation-desktop.png](screenshots/sell-simulation-desktop.png).

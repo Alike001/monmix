@@ -91,8 +91,9 @@ export function ActivityJournal() {
       <div className="activity-toolbar"><span>{records.length} browser record{records.length === 1 ? '' : 's'}</span><button className="button small secondary" type="button" disabled={checking} onClick={reconcile}>{checking ? 'Reconciling…' : 'Reconcile receipts'}</button></div>
       {allowanceAccounts.map((account) => <AllowanceRecovery key={account} account={account} onJournalChange={() => setRecords(readJournal(window.localStorage))} />)}
       {records.map((record) => <article className="card activity-record" key={record.id}>
-        <div className="activity-record-head"><div><span className="eyebrow">{activityEyebrow(record)}</span><h2>{activityTitle(record)}</h2><p>{statusSentence(record)}</p></div><span className={`record-status status-${record.status.toLowerCase()}`}>{record.reconciledAt && record.status === 'CONFIRMED' ? 'RECONCILED' : record.status.replace('_', ' ')}</span></div>
-        {!['APPROVE_USDC', 'REVOKE_USDC'].includes(record.action ?? '') ? <div className="activity-outcome"><div><span>Attempted</span><strong>{record.action === 'BUY_MON' ? `${formatCompactAtoms(BigInt(record.quoteAmountAtoms ?? '0'), 6, 6)} USDC` : `${formatCompactAtoms(BigInt(record.baseAmountAtoms), 18, 6)} MON`}</strong></div><div><span>Received</span><strong>{record.action === 'BUY_MON' ? record.receivedBaseAtoms ? `${formatCompactAtoms(BigInt(record.receivedBaseAtoms), 18, 6)} MON` : 'Not yet verified' : record.receivedQuoteAtoms ? `${formatCompactAtoms(BigInt(record.receivedQuoteAtoms), 6, 6)} USDC` : 'Not yet verified'}</strong></div><div><span>Protected minimum</span><strong>{record.action === 'BUY_MON' ? `${formatCompactAtoms(BigInt(record.minimumBaseAtoms ?? '0'), 18, 6)} MON` : `${formatCompactAtoms(BigInt(record.minimumQuoteAtoms), 6, 6)} USDC`}</strong></div></div> : <div className="activity-outcome"><div><span>{record.action === 'REVOKE_USDC' ? 'Target allowance' : 'Approval amount'}</span><strong>{formatCompactAtoms(BigInt(record.approvalAmountAtoms ?? '0'), 6, 6)} USDC</strong></div><div><span>Spender</span><strong>Kuru market</strong></div><div><span>Trade</span><strong>Not included</strong></div></div>}
+        <div className="activity-record-head"><div><span className="eyebrow">{activityEyebrow(record)}</span><h2>{activityTitle(record)}</h2><p>{statusSentence(record)}</p></div><span className={`record-status status-${record.status.toLowerCase()}`}>{activityStatusLabel(record)}</span></div>
+        {record.status === 'PREPARED' ? <div className="local-review-note"><strong>Local review only</strong><span>No wallet signature, transaction hash, receipt, or verified fill exists for this record.</span></div> : null}
+        {!['APPROVE_USDC', 'REVOKE_USDC'].includes(record.action ?? '') ? <TradeOutcome record={record} /> : <div className="activity-outcome"><div><span>{record.action === 'REVOKE_USDC' ? 'Target allowance' : 'Approval amount'}</span><strong>{formatCompactAtoms(BigInt(record.approvalAmountAtoms ?? '0'), 6, 6)} USDC</strong></div><div><span>Spender</span><strong>Kuru market</strong></div><div><span>Trade</span><strong>Not included</strong></div></div>}
         {record.beforeMonAtoms && record.afterMonAtoms ? <div className="allocation-change"><span>Wallet MON</span><strong>{formatCompactAtoms(BigInt(record.beforeMonAtoms), 18, 4)} → {formatCompactAtoms(BigInt(record.afterMonAtoms), 18, 4)}</strong></div> : null}
         {record.beforeUsdcAtoms && record.afterUsdcAtoms ? <div className="allocation-change"><span>Wallet USDC</span><strong>{formatCompactAtoms(BigInt(record.beforeUsdcAtoms), 6, 4)} → {formatCompactAtoms(BigInt(record.afterUsdcAtoms), 6, 4)}</strong></div> : null}
         {record.beforeAllocationBps && record.afterAllocationBps ? <div className="allocation-change"><span>MON allocation · preparation price</span><strong>{formatCompactAtoms(BigInt(record.beforeAllocationBps), 2, 2)}% → {formatCompactAtoms(BigInt(record.afterAllocationBps), 2, 2)}%</strong></div> : null}
@@ -106,7 +107,7 @@ export function ActivityJournal() {
 }
 
 function statusSentence(record: JournalRecord): string {
-  if (record.status === 'PREPARED') return 'Prepared from fresh market data, but no wallet request was made.';
+  if (record.status === 'PREPARED') return 'Saved from a protected simulation. It was not signed, broadcast, or executed.';
   if (record.status === 'CONFIRMED' && record.action === 'REVOKE_USDC') return 'Confirmed on Monad with an exact zero-value USDC Approval event. No trade was included.';
   if (record.status === 'CONFIRMED' && record.action === 'APPROVE_USDC') return 'Confirmed on Monad with the exact expected USDC Approval event. No trade was included.';
   if (record.status === 'CONFIRMED') return 'Confirmed on Monad with a matching Kuru Trade event.';
@@ -118,6 +119,7 @@ function statusSentence(record: JournalRecord): string {
 }
 
 function activityEyebrow(record: JournalRecord): string {
+  if (record.status === 'PREPARED') return 'Local protected review';
   if (record.action === 'BUY_MON') return 'USDC → MON on Kuru';
   if (record.action === 'APPROVE_USDC') return 'Exact USDC approval';
   if (record.action === 'REVOKE_USDC') return 'USDC allowance revocation';
@@ -125,8 +127,26 @@ function activityEyebrow(record: JournalRecord): string {
 }
 
 function activityTitle(record: JournalRecord): string {
-  if (record.action === 'BUY_MON') return `Buy MON with ${formatCompactAtoms(BigInt(record.quoteAmountAtoms ?? '0'), 6, 6)} USDC`;
+  const prefix = record.status === 'PREPARED' ? 'Review' : '';
+  if (record.action === 'BUY_MON') return `${prefix ? 'Review buying' : 'Buy'} MON with ${formatCompactAtoms(BigInt(record.quoteAmountAtoms ?? '0'), 6, 6)} USDC`;
   if (record.action === 'APPROVE_USDC') return `Approve ${formatCompactAtoms(BigInt(record.approvalAmountAtoms ?? '0'), 6, 6)} USDC`;
   if (record.action === 'REVOKE_USDC') return 'Revoke Kuru USDC allowance';
-  return `Sell ${formatCompactAtoms(BigInt(record.baseAmountAtoms), 18, 6)} MON`;
+  return `${prefix ? 'Review selling' : 'Sell'} ${formatCompactAtoms(BigInt(record.baseAmountAtoms), 18, 6)} MON`;
+}
+
+function activityStatusLabel(record: JournalRecord): string {
+  if (record.status === 'PREPARED') return 'LOCAL REVIEW';
+  if (record.reconciledAt && record.status === 'CONFIRMED') return 'RECONCILED';
+  return record.status.replace('_', ' ');
+}
+
+function TradeOutcome({ record }: { record: JournalRecord }) {
+  const buying = record.action === 'BUY_MON';
+  const prepared = record.status === 'PREPARED';
+  const input = buying ? `${formatCompactAtoms(BigInt(record.quoteAmountAtoms ?? '0'), 6, 6)} USDC` : `${formatCompactAtoms(BigInt(record.baseAmountAtoms), 18, 6)} MON`;
+  const output = buying
+    ? prepared ? record.expectedBaseAtoms ? `${formatCompactAtoms(BigInt(record.expectedBaseAtoms), 18, 6)} MON estimated` : 'Estimate unavailable' : record.receivedBaseAtoms ? `${formatCompactAtoms(BigInt(record.receivedBaseAtoms), 18, 6)} MON` : 'Not yet verified'
+    : prepared ? record.expectedQuoteAtoms ? `${formatCompactAtoms(BigInt(record.expectedQuoteAtoms), 6, 6)} USDC estimated` : 'Estimate unavailable' : record.receivedQuoteAtoms ? `${formatCompactAtoms(BigInt(record.receivedQuoteAtoms), 6, 6)} USDC` : 'Not yet verified';
+  const minimum = buying ? `${formatCompactAtoms(BigInt(record.minimumBaseAtoms ?? '0'), 18, 6)} MON` : `${formatCompactAtoms(BigInt(record.minimumQuoteAtoms), 6, 6)} USDC`;
+  return <div className="activity-outcome"><div><span>{prepared ? 'Proposed input' : 'Attempted'}</span><strong>{input}</strong></div><div><span>{prepared ? 'Estimated output' : 'Received'}</span><strong>{output}</strong></div><div><span>Protected minimum</span><strong>{minimum}</strong></div></div>;
 }

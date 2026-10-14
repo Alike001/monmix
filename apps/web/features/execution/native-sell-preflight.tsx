@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Address } from 'viem';
 import { useConnection, useWriteContract } from 'wagmi';
 import {
@@ -25,6 +25,7 @@ import { assertWalletExecutionContext, readProviderWalletState } from '@/lib/wal
 import { assertSellRevalidation } from '@/lib/execution-review';
 import { resolveBoundedSellAmount, type SellAmountMode } from '@/lib/execution-amount';
 import { useNowSeconds } from '@/lib/use-now-seconds';
+import type { PreviewProgress } from '@/lib/workflow-progress';
 
 type PreflightState =
   | { kind: 'idle' }
@@ -34,7 +35,7 @@ type PreflightState =
 
 const EXECUTION_ENABLED = process.env.NEXT_PUBLIC_ENABLE_MAINNET_EXECUTION === 'true';
 
-export function NativeSellPreflight({ account, recommendedBaseAmountAtoms, declaredMinimumBaseAmountAtoms }: { account: Address; recommendedBaseAmountAtoms: bigint; declaredMinimumBaseAmountAtoms: bigint }) {
+export function NativeSellPreflight({ account, recommendedBaseAmountAtoms, declaredMinimumBaseAmountAtoms, onPreviewStateChange }: { account: Address; recommendedBaseAmountAtoms: bigint; declaredMinimumBaseAmountAtoms: bigint; onPreviewStateChange: (state: PreviewProgress) => void }) {
   const connection = useConnection();
   const { writeContractAsync } = useWriteContract();
   const [state, setState] = useState<PreflightState>({ kind: 'idle' });
@@ -43,12 +44,18 @@ export function NativeSellPreflight({ account, recommendedBaseAmountAtoms, decla
   const inFlight = useRef(false);
   const nowSeconds = useNowSeconds();
   const baseAmountAtoms = resolveBoundedSellAmount({ mode: amountMode, recommendedBaseAtoms: recommendedBaseAmountAtoms, declaredMinimumBaseAtoms: declaredMinimumBaseAmountAtoms });
+  const freshness = state.kind === 'ready' ? quoteFreshness(BigInt(state.preparation.expiresAtSeconds), nowSeconds) : null;
+
+  useEffect(() => {
+    if (freshness === 'EXPIRED') onPreviewStateChange('idle');
+  }, [freshness, onPreviewStateChange]);
 
   function selectAmount(mode: SellAmountMode) {
     if (inFlight.current) return;
     setAmountMode(mode);
     setState({ kind: 'idle' });
     setExecutionMessage('');
+    onPreviewStateChange('idle');
   }
 
   async function requestPreflight(): Promise<NativeSellPreparationDto> {
@@ -73,6 +80,7 @@ export function NativeSellPreflight({ account, recommendedBaseAmountAtoms, decla
     inFlight.current = true;
     setState({ kind: 'loading' });
     setExecutionMessage('');
+    onPreviewStateChange('loading');
     try {
       const preparation = await requestPreflight();
       recordPreparedAction(window.localStorage, {
@@ -84,9 +92,11 @@ export function NativeSellPreflight({ account, recommendedBaseAmountAtoms, decla
         valuationPriceX18: preparation.valuationPriceX18,
       });
       setState({ kind: 'ready', preparation, receivedAtSeconds: BigInt(Math.floor(Date.now() / 1000)) });
+      onPreviewStateChange('completed');
     } catch (error) {
       const failure = error as Error & { code?: string };
       setState({ kind: 'error', code: failure.code ?? 'PREFLIGHT_UNAVAILABLE', message: failure.message });
+      onPreviewStateChange('blocked');
     } finally {
       inFlight.current = false;
     }

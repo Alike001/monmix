@@ -76,8 +76,32 @@ test('disconnected desk refuses portfolio evaluation and exposes no enabled trad
   await expect(page.getByRole('button', { name: /Connect wallet/ })).toHaveCount(1);
   await expect(page.locator('.portfolio-panel').getByRole('button', { name: /Connect wallet/ })).toHaveCount(0);
   await expect(page.getByText('Connect your wallet to see your plan.')).toBeVisible();
-  await expect(page.getByText('BLOCK')).toBeVisible();
+  await expect(page.getByText('BLOCK', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /confirm in wallet/i })).toHaveCount(0);
+  const workflow = page.getByRole('navigation', { name: 'Strategy workflow' });
+  await expect(workflow.getByRole('button', { name: 'Portfolio: current' })).toHaveAttribute('aria-current', 'step');
+  await expect(workflow.getByRole('button', { name: 'Target: pending' })).toBeVisible();
+  await expect(workflow.getByRole('button', { name: 'Decision: pending' })).toBeVisible();
+  await expect(workflow.getByRole('button', { name: 'Preview: pending' })).toBeVisible();
+  await workflow.getByRole('button', { name: 'Target: pending' }).click();
+  await expect(page.locator('#workflow-target')).toBeFocused();
+});
+
+test('workflow navigation remains reachable and focuses real sections on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto('/desk');
+  const workflow = page.getByRole('navigation', { name: 'Strategy workflow' });
+  for (const stage of ['Portfolio: current', 'Target: pending', 'Decision: pending', 'Preview: pending']) {
+    const button = workflow.getByRole('button', { name: stage });
+    await expect(button).toBeVisible();
+    const box = await button.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(375);
+  }
+  await workflow.getByRole('button', { name: 'Preview: pending' }).click();
+  await expect(page.locator('#workflow-preview')).toBeFocused();
+  await expect(page.getByRole('heading', { name: 'No transaction preview is available.' })).toBeVisible();
 });
 
 test('activity does not invent a trade when the browser journal is empty', async ({ page }) => {
@@ -151,9 +175,12 @@ test('prepared buy is clearly unsigned and distinct from a completed trade', asy
     createdAt: '2026-10-13T10:00:00.000Z', updatedAt: '2026-10-13T10:00:00.000Z',
   }])))
   await page.reload();
-  await expect(page.getByText('PREPARED', { exact: true })).toBeVisible();
-  await expect(page.getByText('Prepared from fresh market data, but no wallet request was made.')).toBeVisible();
-  await expect(page.getByText('Not yet verified')).toBeVisible();
+  await expect(page.getByText('LOCAL REVIEW', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Review buying MON/ })).toBeVisible();
+  await expect(page.getByText('Saved from a protected simulation. It was not signed, broadcast, or executed.')).toBeVisible();
+  await expect(page.getByText('No wallet signature, transaction hash, receipt, or verified fill exists for this record.')).toBeVisible();
+  await expect(page.getByText('Estimated output', { exact: true })).toBeVisible();
+  await expect(page.getByText('Received', { exact: true })).toHaveCount(0);
   await expect(page.getByRole('link', { name: /View transaction/ })).toHaveCount(0);
 });
 
@@ -300,6 +327,11 @@ test('a verified empty Monad wallet is not described as an on-track allocation',
   await expect(page.getByText(/No MON or USDC was found/)).toBeVisible();
   await expect(page.getByText('Your allocation is on track.')).toHaveCount(0);
   await expect(page.getByText('Fund wallet to begin')).toBeVisible();
+  const workflow = page.getByRole('navigation', { name: 'Strategy workflow' });
+  await expect(workflow.getByRole('button', { name: 'Portfolio: completed' })).toBeVisible();
+  await expect(workflow.getByRole('button', { name: 'Target: completed' })).toBeVisible();
+  await expect(workflow.getByRole('button', { name: 'Decision: current' })).toHaveAttribute('aria-current', 'step');
+  await expect(workflow.getByRole('button', { name: 'Preview: blocked' })).toBeVisible();
 });
 
 test('funded sell simulation stays clear of the sticky decision at every supported width', async ({ page }) => {
@@ -356,6 +388,13 @@ test('funded sell simulation stays clear of the sticky decision at every support
   await page.getByRole('button', { name: 'Done' }).click();
   await page.getByRole('slider', { name: 'Target MON percentage' }).fill('8');
   await expect(page.getByRole('heading', { name: 'A MON sell is ready to inspect.' })).toBeVisible({ timeout: 20_000 });
+  const workflow = page.getByRole('navigation', { name: 'Strategy workflow' });
+  await expect(workflow.getByRole('button', { name: 'Portfolio: completed' })).toBeVisible();
+  await expect(workflow.getByRole('button', { name: 'Target: completed' })).toBeVisible();
+  await expect(workflow.getByRole('button', { name: 'Decision: completed' })).toBeVisible();
+  await expect(workflow.getByRole('button', { name: 'Preview: current' })).toHaveAttribute('aria-current', 'step');
+  await workflow.getByRole('button', { name: 'Decision: completed' }).click();
+  await expect(page.locator('#workflow-decision')).toBeFocused();
   const proposedAmount = page.getByText('Proposed MON amount').locator('..').locator('strong');
   await expect(proposedAmount).toBeVisible();
   expect(Number.parseFloat((await proposedAmount.textContent()) ?? '0')).toBeGreaterThanOrEqual(200);
@@ -380,6 +419,7 @@ test('funded sell simulation stays clear of the sticky decision at every support
   await expect(prepared.getByText('You would sell').locator('..')).toContainText('200.000000 MON');
   expect(requestedSellAmounts).toEqual(['200000000000000000000']);
   await expect(prepared.getByRole('button', { name: 'Mainnet execution disabled' })).toBeDisabled();
+  await expect(workflow.getByRole('button', { name: 'Preview: completed' })).toBeVisible();
 
   const overlaps = (a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) =>
     a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
@@ -402,8 +442,24 @@ test('funded sell simulation stays clear of the sticky decision at every support
   await page.setViewportSize({ width: 1366, height: 1000 });
   await preflight.scrollIntoViewIfNeeded();
   if (process.env.CAPTURE_SCREENSHOTS === 'true') {
-    await preflight.screenshot({ path: 'docs/screenshots/sell-simulation-desktop.png' });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: 'docs/screenshots/workflow-desktop.png', fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: 'docs/screenshots/workflow-mobile.png' });
+    await page.setViewportSize({ width: 1366, height: 1000 });
   }
+  await strategyAmount.check();
+  await expect(workflow.getByRole('button', { name: 'Preview: current' })).toBeVisible();
+  await expect(prepared).toHaveCount(0);
+  await venueMinimum.check();
+  await simulation.click();
+  await expect(prepared.getByText('You would sell')).toBeVisible();
+  await expect(workflow.getByRole('button', { name: 'Preview: completed' })).toBeVisible();
+  await page.getByRole('slider', { name: 'Target MON percentage' }).fill('7');
+  await expect(page.getByText('Target changed to 7% MON. Recommendation and preview reset.')).toBeVisible();
+  await expect(workflow.getByRole('button', { name: 'Preview: current' })).toBeVisible();
+  await expect(prepared).toHaveCount(0);
 });
 
 test('mocked injected wallet reaches a protected buy preparation without enabling a write', async ({ page }) => {
@@ -461,8 +517,11 @@ test('mocked injected wallet reaches a protected buy preparation without enablin
   await expect(page.getByText('Exact approval required')).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText('Pending approval')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Mainnet execution disabled' })).toBeDisabled();
+  const workflow = page.getByRole('navigation', { name: 'Strategy workflow' });
+  await expect(workflow.getByRole('button', { name: 'Preview: current' })).toBeVisible();
   const nextAccount = '0x2222222222222222222222222222222222222222';
   await page.evaluate((next) => (window as unknown as { __monmixSwitchAccount(next: string): void }).__monmixSwitchAccount(next), nextAccount);
   await expect(page.locator('header').getByText(/0x2222…2222/)).toBeVisible();
   await expect(page.getByText('Exact approval required')).toHaveCount(0);
+  await expect(workflow.getByRole('button', { name: 'Preview: completed' })).toHaveCount(0);
 });

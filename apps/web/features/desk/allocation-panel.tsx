@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { buildReadOnlyReview, deserializeMarketSnapshot, MONAD_MAINNET_CHAIN_ID, quoteAtomsForBaseAtoms } from '@monad-strategy/kuru-adapter';
 import { evaluateRebalance, formatAtoms, parseDecimalToAtoms, type ProposedAction } from '@monad-strategy/domain';
 import { useVerifiedWallet } from '@/features/wallet/wallet-readiness-provider';
@@ -10,6 +10,7 @@ import { ALLOCATION_PRESETS, allocationBps, marketMinimumQuoteAtoms, presetForTa
 import { formatCompactAtoms, formatRaw } from '@/lib/format';
 import { DEFAULT_STRATEGY_PREFERENCES, readStrategyPreferences, saveStrategyPreferences, type StrategyPresetId } from '@/lib/strategy-preferences';
 import { useMarket } from '@/lib/use-market';
+import { deriveWorkflowStages, type PreviewProgress, type WorkflowStage } from '@/lib/workflow-progress';
 
 type BalanceState = { kind: 'idle' } | { kind: 'error'; owner: string; message: string } | { kind: 'ready'; owner: string; mon: bigint; usdc: bigint; observedAtSeconds: bigint };
 type Snapshot = ReturnType<typeof deserializeMarketSnapshot>;
@@ -31,6 +32,9 @@ export function AllocationPanel() {
   const [paused, setPaused] = useState(false);
   const [savedMessage, setSavedMessage] = useState('');
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  const [strategyRevision, setStrategyRevision] = useState(0);
+  const [strategyMessage, setStrategyMessage] = useState('');
+  const [previewProgress, setPreviewProgress] = useState<{ signature: string; state: PreviewProgress }>({ signature: '', state: 'idle' });
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -95,11 +99,34 @@ export function AllocationPanel() {
   }, [balances, dailyCap, marketState, minimumTrade, paused, perActionCap, readiness, target, trigger, wallet.address, wallet.message]);
 
   const liveBalances = readiness === 'READY' && balances.kind === 'ready' && balances.owner === wallet.address ? balances : null;
-  const changeTarget = (value: string) => { setTarget(value); setPreset(presetForTarget(value)); setSavedMessage(''); };
+  const eligibleReview = result.kind === 'decision' && result.decision.status === 'REVIEW' && result.review?.status === 'REVIEW' && wallet.address
+    ? { side: result.decision.side, review: result.review, minimumBaseAtoms: result.minimumBaseAtoms, account: wallet.address }
+    : null;
+  const previewSignature = eligibleReview
+    ? `${wallet.connectorUid}:${eligibleReview.account}:${strategyRevision}:${eligibleReview.side}:${eligibleReview.side === 'SELL_BASE' ? eligibleReview.review.estimatedBaseAtoms : eligibleReview.review.estimatedQuoteAtoms}`
+    : `unavailable:${wallet.connectorUid ?? 'none'}:${wallet.address ?? 'none'}:${strategyRevision}`;
+  const currentPreviewProgress = previewProgress.signature === previewSignature ? previewProgress.state : 'idle';
+  const onPreviewStateChange = useCallback((state: PreviewProgress) => setPreviewProgress({ signature: previewSignature, state }), [previewSignature]);
+  const markStrategyChanged = (message: string) => {
+    setSavedMessage('');
+    setStrategyMessage(message);
+    setStrategyRevision((value) => value + 1);
+  };
+  const changeTarget = (value: string) => {
+    setTarget(value); setPreset(presetForTarget(value));
+    markStrategyChanged(`Target changed to ${value}% MON. Recommendation and preview reset.`);
+  };
+  const portfolioProgress = liveBalances ? 'completed' : result.kind === 'blocked' && ['WRONG_NETWORK', 'PROVIDER_MISMATCH', 'BALANCE_UNAVAILABLE'].includes(result.code) ? 'blocked' : 'waiting';
+  const targetProgress = portfolioProgress !== 'completed' ? 'pending' : result.kind === 'blocked' && result.code === 'INVALID_INPUT' ? 'blocked' : 'completed';
+  const decisionProgress = targetProgress !== 'completed' ? 'pending'
+    : result.kind === 'blocked' || result.decision.status === 'BLOCK' || result.review?.status === 'BLOCK' ? 'blocked'
+      : result.decision.status === 'WAIT' ? 'wait' : 'completed';
+  const stages = deriveWorkflowStages({ portfolio: portfolioProgress, target: targetProgress, decision: decisionProgress, preview: currentPreviewProgress });
+  const decisionIdentity = result.kind === 'blocked' ? `${strategyRevision}:${result.code}` : `${strategyRevision}:${result.decision.status}:${result.decision.status === 'REVIEW' ? result.decision.side : result.decision.code}`;
   return <div className="desk-workspace">
-    <div className="desk-steps" aria-label="Strategy workflow"><span className="active">1 Portfolio</span><span>2 Target</span><span>3 Decision</span><span>4 Preview</span></div>
+    <WorkflowNavigation stages={stages} />
     <div className="desk-layout"><div className="desk-main-column">
-      <section className="card panel portfolio-panel">
+      <section id="workflow-portfolio" tabIndex={-1} className="card panel portfolio-panel workflow-section">
         <div className="panel-head"><div><span className="eyebrow">Your portfolio</span><h2>MON and USDC, valued now</h2><p>Connect and manage your wallet from the header. Balances appear here only after the selected wallet is verified on Monad mainnet.</p></div></div>
         {readiness === 'WRONG_NETWORK' ? <div className="notice danger"><strong>Wrong network.</strong> Monad balances are hidden until the selected wallet switches to chain {MONAD_MAINNET_CHAIN_ID}.</div> : null}
         {readiness === 'PROVIDER_MISMATCH' ? <div className="notice danger"><strong>Wallet state mismatch.</strong> Monad balances and trade preparations have been cleared. Disconnect and reconnect the wallet you intend to use.</div> : null}
@@ -109,23 +136,36 @@ export function AllocationPanel() {
         </div></div>
         {result.kind === 'decision' ? <AllocationComparison current={result.allocationBps} target={parseDecimalToAtoms(target, 2)} /> : null}
       </section>
-      <section className="card panel target-panel">
+      <section id="workflow-target" tabIndex={-1} className="card panel target-panel workflow-section">
         <div className="panel-head"><div><span className="eyebrow">Your target</span><h2>Choose the mix you want to maintain</h2><p>A saved target is a browser preference, not an automatic trade or onchain limit.</p></div></div>
         <fieldset className="strategy-controls" disabled={!preferencesLoaded} aria-busy={!preferencesLoaded}>
         <div className="preset-grid" role="radiogroup" aria-label="Allocation presets">
-          {ALLOCATION_PRESETS.map((item) => <button key={item.id} type="button" role="radio" aria-checked={preset === item.id} className={`preset-card ${preset === item.id ? 'selected' : ''}`} onClick={() => { setPreset(item.id); setTarget(item.monPercent); setSavedMessage(''); }}><strong>{item.name}</strong><span>{item.monPercent}% MON · {100 - Number(item.monPercent)}% USDC</span><small>{item.description}</small></button>)}
+          {ALLOCATION_PRESETS.map((item) => <button key={item.id} type="button" role="radio" aria-checked={preset === item.id} className={`preset-card ${preset === item.id ? 'selected' : ''}`} onClick={() => { setPreset(item.id); setTarget(item.monPercent); markStrategyChanged(`Target changed to ${item.monPercent}% MON. Recommendation and preview reset.`); }}><strong>{item.name}</strong><span>{item.monPercent}% MON · {100 - Number(item.monPercent)}% USDC</span><small>{item.description}</small></button>)}
           <button type="button" role="radio" aria-checked={preset === 'custom'} className={`preset-card ${preset === 'custom' ? 'selected' : ''}`} onClick={() => setPreset('custom')}><strong>Custom</strong><span>Your exact mix</span><small>Adjust the slider below.</small></button>
         </div>
         <div className="target-control"><div className="target-numbers"><strong>{target || '0'}% MON</strong><span>{Math.max(0, 100 - Number(target || 0))}% USDC</span></div><input aria-label="Target MON percentage" type="range" min="0" max="100" step="1" value={target} onChange={(event) => changeTarget(event.target.value)} /><div className="target-scale"><span>All USDC</span><span>Balanced</span><span>All MON</span></div></div>
-        <details className="advanced-settings"><summary>Review limits and advanced settings</summary><div className="form-grid"><Field label="Act when allocation differs by" value={trigger} onChange={setTrigger} suffix="%" /><Field label="Maximum size per suggestion" value={perActionCap} onChange={setPerActionCap} suffix="USDC" /><Field label="Advisory daily maximum" value={dailyCap} onChange={setDailyCap} suffix="USDC" /><Field label="Ignore adjustments below" value={minimumTrade} onChange={setMinimumTrade} suffix="USDC" /><div className="toggle-row"><div><strong>Pause suggestions</strong><div className="metric-label">Stored in this browser</div></div><button type="button" aria-pressed={paused} aria-label="Pause strategy" className={`toggle ${paused ? 'on' : ''}`} onClick={() => setPaused((value) => !value)} /></div></div></details>
+        <details className="advanced-settings"><summary>Review limits and advanced settings</summary><div className="form-grid"><Field label="Act when allocation differs by" value={trigger} onChange={(value) => { setTrigger(value); markStrategyChanged('Drift threshold changed. Recommendation and preview reset.'); }} suffix="%" /><Field label="Maximum size per suggestion" value={perActionCap} onChange={(value) => { setPerActionCap(value); markStrategyChanged('Suggestion cap changed. Recommendation and preview reset.'); }} suffix="USDC" /><Field label="Advisory daily maximum" value={dailyCap} onChange={(value) => { setDailyCap(value); markStrategyChanged('Advisory daily maximum changed. Recommendation and preview reset.'); }} suffix="USDC" /><Field label="Ignore adjustments below" value={minimumTrade} onChange={(value) => { setMinimumTrade(value); markStrategyChanged('Minimum review size changed. Recommendation and preview reset.'); }} suffix="USDC" /><div className="toggle-row"><div><strong>Pause suggestions</strong><div className="metric-label">Stored in this browser</div></div><button type="button" aria-pressed={paused} aria-label="Pause strategy" className={`toggle ${paused ? 'on' : ''}`} onClick={() => { setPaused((value) => !value); markStrategyChanged(paused ? 'Suggestions resumed. Recommendation recalculated.' : 'Suggestions paused. Preview reset.'); }} /></div></div></details>
         <div className="preference-actions"><button className="button small secondary" type="button" onClick={() => { saveStrategyPreferences(window.localStorage, { preset, target, trigger, perActionCap, dailyCap, minimumTrade, paused }); setSavedMessage('Saved in this browser.'); }}>Save strategy</button><span aria-live="polite">{savedMessage || 'Nothing is synced onchain or between devices.'}</span></div>
+        <p className="strategy-change" aria-live="polite">{strategyMessage}</p>
         </fieldset>
       </section>
-    </div><DecisionCard result={result} target={target} minimumTrade={minimumTrade} /></div>
-    {result.kind === 'decision' && result.decision.status === 'REVIEW' && result.review?.status === 'REVIEW' && wallet.address ? result.decision.side === 'SELL_BASE'
-      ? <NativeSellPreflight key={`sell:${wallet.connectorUid}:${wallet.address}:${result.review.estimatedBaseAtoms}:${result.minimumBaseAtoms}`} account={wallet.address} recommendedBaseAmountAtoms={result.review.estimatedBaseAtoms} declaredMinimumBaseAmountAtoms={result.minimumBaseAtoms} />
-      : <NativeBuyPreflight key={`buy:${wallet.connectorUid}:${wallet.address}:${result.review.estimatedQuoteAtoms}`} account={wallet.address} quoteAmountAtoms={result.review.estimatedQuoteAtoms} /> : null}
+    </div><DecisionCard key={decisionIdentity} result={result} target={target} minimumTrade={minimumTrade} /></div>
+    <div id="workflow-preview" tabIndex={-1} className="workflow-section workflow-preview">
+      {eligibleReview ? eligibleReview.side === 'SELL_BASE'
+        ? <NativeSellPreflight key={previewSignature} account={eligibleReview.account} recommendedBaseAmountAtoms={eligibleReview.review.estimatedBaseAtoms} declaredMinimumBaseAmountAtoms={eligibleReview.minimumBaseAtoms} onPreviewStateChange={onPreviewStateChange} />
+        : <NativeBuyPreflight key={previewSignature} account={eligibleReview.account} quoteAmountAtoms={eligibleReview.review.estimatedQuoteAtoms} onPreviewStateChange={onPreviewStateChange} />
+        : <section className="card preview-unavailable" aria-labelledby="preview-unavailable-title"><span className="eyebrow">Protected Kuru preview</span><h2 id="preview-unavailable-title">No transaction preview is available.</h2><p>{result.kind === 'blocked' ? 'Resolve the blocked wallet, market, or strategy state first.' : result.decision.status === 'WAIT' ? 'Your current decision does not need a trade.' : 'The proposed adjustment does not meet the visible market requirements.'}</p></section>}
+    </div>
   </div>;
+}
+
+function WorkflowNavigation({ stages }: { stages: WorkflowStage[] }) {
+  const moveTo = (id: WorkflowStage['id']) => {
+    const section = document.getElementById(`workflow-${id}`);
+    section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    section?.focus({ preventScroll: true });
+  };
+  return <nav className="desk-steps" aria-label="Strategy workflow"><ol>{stages.map((stage, index) => <li key={stage.id}><button type="button" className={`workflow-step ${stage.state}`} aria-current={stage.state === 'current' ? 'step' : undefined} aria-label={`${stage.label}: ${stage.state}`} onClick={() => moveTo(stage.id)}><span>{index + 1}</span><strong>{stage.label}</strong><small>{stage.state}</small></button></li>)}</ol></nav>;
 }
 
 function AllocationRing({ allocation, total }: { allocation: bigint | null; total: bigint | null }) {
@@ -155,14 +195,14 @@ function decisionExplanation(decision: ProposedAction): string {
 }
 
 function DecisionCard({ result, target, minimumTrade }: { result: StrategyResult; target: string; minimumTrade: string }) {
-  if (result.kind === 'blocked') return <aside className="card panel decision"><div className="decision-status"><span className="eyebrow">Your next step</span><span className="decision-code block">BLOCK</span></div><h2>{result.title}</h2><p>{result.detail}</p><div className="decision-next">No transaction can be prepared in this state.</div></aside>;
+  if (result.kind === 'blocked') return <aside id="workflow-decision" tabIndex={-1} className="card panel decision workflow-section"><div className="decision-status"><span className="eyebrow">Your next step</span><span className="decision-code block">BLOCK</span></div><h2>{result.title}</h2><p>{result.detail}</p><div className="decision-next">No transaction can be prepared in this state.</div></aside>;
   const { decision, review, snapshot } = result;
   const noCapital = decision.status === 'WAIT' && decision.code === 'NO_CAPITAL';
   const reviewSide = decision.status === 'REVIEW' ? decision.side : null;
   const headline = decision.status === 'WAIT'
     ? noCapital ? 'This portfolio is empty.' : 'Your allocation is on track.'
     : decision.status === 'BLOCK' ? 'This adjustment is not available.' : decision.side === 'BUY_BASE' ? 'A MON buy is suggested.' : 'A MON sell is ready to inspect.';
-  return <aside className="card panel decision"><div className="decision-status"><span className="eyebrow">Your next step</span><span className={`decision-code ${decision.status.toLowerCase()}`}>{decision.status}</span></div><h2>{headline}</h2><p>{decisionExplanation(decision)}</p><div className="decision-allocation"><span>Current MON <strong>{formatAtoms(result.allocationBps, 2, 1)}%</strong></span><b>→</b><span>Target MON <strong>{target}%</strong></span></div>
+  return <aside id="workflow-decision" tabIndex={-1} className="card panel decision workflow-section"><div className="decision-status"><span className="eyebrow">Your next step</span><span className={`decision-code ${decision.status.toLowerCase()}`}>{decision.status}</span></div><h2>{headline}</h2><p>{decisionExplanation(decision)}</p><div className="decision-allocation"><span>Current MON <strong>{formatAtoms(result.allocationBps, 2, 1)}%</strong></span><b>→</b><span>Target MON <strong>{target}%</strong></span></div>
     <div className="strategy-health" aria-label="Strategy health"><div><span>Current allocation</span><strong>{noCapital ? 'No assets' : `${formatAtoms(result.allocationBps, 2, 1)}% MON`}</strong></div><div><span>Desired allocation</span><strong>{target}% MON</strong></div><div><span>Wallet observed</span><strong>{Math.max(0, Number(result.snapshot.observedAtSeconds + result.snapshot.ageSeconds - result.walletObservedAtSeconds))}s ago</strong></div><div><span>Market observed</span><strong>{result.snapshot.ageSeconds}s old</strong></div><div><span>Adjustment health</span><strong>{review?.status === 'REVIEW' ? 'Meets visible market rules' : decision.status === 'WAIT' ? noCapital ? 'Fund wallet to begin' : 'No adjustment needed' : 'Unavailable now'}</strong></div></div>
     <div className="review-metrics"><div className="review-metric"><span>Difference from target</span><strong>{formatAtoms(decision.driftBps < 0n ? -decision.driftBps : decision.driftBps, 2, 2)}%</strong></div>{decision.status === 'REVIEW' ? <div className="review-metric"><span>{reviewSide === 'BUY_BASE' ? 'USDC to spend' : 'Proposed trade value'}</span><strong>${formatCompactAtoms(decision.quoteNotional, 6, 2)}</strong></div> : null}{review?.status === 'REVIEW' ? <><div className="review-metric important"><span>{reviewSide === 'BUY_BASE' ? 'Estimated MON received' : 'Proposed MON amount'}</span><strong>{formatCompactAtoms(review.estimatedBaseAtoms, 18, 4)} MON</strong></div><div className="review-metric"><span>Worst visible price</span><strong>${formatRaw(review.worstPriceRaw, snapshot.params.pricePrecision, 6)}</strong></div><div className="review-metric"><span>Order-book levels used</span><strong>{review.levelsUsed}</strong></div></> : null}</div>
     <div className="market-requirement"><span>Kuru minimum order</span><strong>{formatCompactAtoms(result.minimumBaseAtoms, 18, 0)} MON</strong><small>About ${formatCompactAtoms(result.minimumQuoteAtoms, 6, 2)} at the current midpoint</small></div>

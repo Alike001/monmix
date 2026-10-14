@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Address, Hex } from 'viem';
 import { useConnection, useWriteContract } from 'wagmi';
 import {
@@ -14,17 +14,23 @@ import { beginJournalRecord, isProtectedTradeOutcome, portfolioAllocationBps, re
 import { assertWalletExecutionContext, readProviderWalletState } from '@/lib/wallet-state';
 import { assertBuyRevalidation } from '@/lib/execution-review';
 import { useNowSeconds } from '@/lib/use-now-seconds';
+import type { PreviewProgress } from '@/lib/workflow-progress';
 
 type State = { kind: 'idle' } | { kind: 'loading' } | { kind: 'error'; code: string; message: string } | { kind: 'ready'; preparation: NativeBuyPreparationDto; receivedAtSeconds: bigint };
 const EXECUTION_ENABLED = process.env.NEXT_PUBLIC_ENABLE_MAINNET_EXECUTION === 'true';
 
-export function NativeBuyPreflight({ account, quoteAmountAtoms }: { account: Address; quoteAmountAtoms: bigint }) {
+export function NativeBuyPreflight({ account, quoteAmountAtoms, onPreviewStateChange }: { account: Address; quoteAmountAtoms: bigint; onPreviewStateChange: (state: PreviewProgress) => void }) {
   const connection = useConnection();
   const { writeContractAsync } = useWriteContract();
   const [state, setState] = useState<State>({ kind: 'idle' });
   const [message, setMessage] = useState('');
   const inFlight = useRef(false);
   const nowSeconds = useNowSeconds();
+  const freshness = state.kind === 'ready' ? quoteFreshness(BigInt(state.preparation.expiresAtSeconds), nowSeconds) : null;
+
+  useEffect(() => {
+    if (freshness === 'EXPIRED') onPreviewStateChange('idle');
+  }, [freshness, onPreviewStateChange]);
 
   async function requestPreflight() {
     const response = await fetch('/api/preflight/buy', { method: 'POST', headers: { 'content-type': 'application/json' }, cache: 'no-store', body: JSON.stringify({ account, quoteAmountAtoms: quoteAmountAtoms.toString(), slippageBps: '50' }) });
@@ -39,6 +45,7 @@ export function NativeBuyPreflight({ account, quoteAmountAtoms }: { account: Add
   async function simulate() {
     if (inFlight.current) return;
     inFlight.current = true; setState({ kind: 'loading' }); setMessage('');
+    onPreviewStateChange('loading');
     try {
       const preparation = await requestPreflight();
       recordPreparedAction(window.localStorage, {
@@ -51,9 +58,11 @@ export function NativeBuyPreflight({ account, quoteAmountAtoms }: { account: Add
         valuationPriceX18: preparation.valuationPriceX18,
       });
       setState({ kind: 'ready', preparation, receivedAtSeconds: BigInt(Math.floor(Date.now() / 1000)) });
+      onPreviewStateChange(preparation.exactBuySimulationPassed ? 'completed' : 'idle');
     } catch (error) {
       const failure = error as Error & { code?: string };
       setState({ kind: 'error', code: failure.code ?? 'PREFLIGHT_UNAVAILABLE', message: failure.message });
+      onPreviewStateChange('blocked');
     } finally { inFlight.current = false; }
   }
 
