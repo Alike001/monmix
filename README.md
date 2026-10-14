@@ -7,94 +7,121 @@
 
 **Your crypto, your mix.**
 
-MonMix helps you keep your MON and USDC holdings aligned with your goals. Choose your target allocation, see when your portfolio drifts, and review protected trades through Kuru to rebalance—all while keeping control of your wallet.
+[Live app](https://monmix.vercel.app) · [GitHub](https://github.com/Alike001/monmix) · [Technical demo](https://youtu.be/0MpnUyNHnPI) · [Pitch](https://youtu.be/46F1SSIIauw) · [Product advertisement](https://youtu.be/DrRXAqUAj6E)
 
-A user can inspect Kuru's live MON/USDC order book, connect an injected wallet, read real MON and USDC balances, choose a target allocation and advisory limits, receive a deterministic `WAIT`, `BLOCK`, or `REVIEW`, and prepare a protected Kuru adjustment in either direction.
+**Monad Metropolis** · Onchain Finance & Trading · Kuru — Build the Next Consumer Trading App on Kuru · **Ready for judging**
 
-The user-confirmed native MON sell and exact-approval USDC-to-MON lifecycles are implemented but **disabled by default**. This work did not approve, sign, or broadcast a transaction. It has no backend signer, automation, private-key handling, or contract deployment. TypeScript policy limits bound a recommendation only; they are not independently enforced financial controls.
+MonMix helps people keep their MON and USDC holdings aligned with their goals. Choose a target allocation, see when the portfolio drifts, and review a protected Kuru trade to rebalance—all while keeping control of the wallet.
 
 ![MonMix landing page](docs/screenshots/home-desktop.png)
 
-Desktop and mobile captures for every public route are indexed in [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md).
+## The problem
 
-## Thirty-second journey
+Spot traders know what mix of volatile and stable assets they want, but maintaining that mix means repeatedly checking balances, valuing the portfolio, calculating drift, understanding venue constraints, and constructing a safe order. A conventional swap ticket starts with an amount; it does not explain whether that trade fits a portfolio goal.
 
-1. `/markets` verifies the deployed Kuru market, token metadata, precision, freshness and two-sided depth.
-2. The single header wallet entry opens an explicit injected-provider chooser. It identifies the selected extension, account, provider network and chain ID, then verifies that provider's account and Monad Mainnet chain 143 before `/desk` reads native MON plus USDC balances.
-3. The user sets a MON target, drift threshold, per-review cap, daily advisory budget and minimum review size.
-4. Integer-only policy math returns `WAIT`, `BLOCK`, or `REVIEW`; adjustments under Kuru's declared 200 MON minimum are refused.
-5. An eligible sell is simulated exactly. A buy first verifies an exact USDC approval requirement; after a separately confirmed allowance, the exact protected buy can be simulated. Both use bigint output protection, fill-or-kill, gas, balance, proxy and code-hash checks.
-6. `/activity` separates prepared, rejected, broadcast, confirmed, reverted, unresolved and reload-reconciled records. It can also read a recorded account's live Kuru USDC allowance and prepare a separately confirmed zero-allowance recovery. No simulation is presented as a completed trade.
+## The solution
 
-## Run locally
+MonMix starts with the portfolio decision and carries it through to a verifiable Kuru preparation:
 
-Requirements: Node.js 22.x (the repository pins 22.16.0 for local and CI use) and pnpm 10.34.5.
+1. Connect MetaMask or another explicitly selected injected wallet.
+2. Verify that the selected provider, account, and network all agree on Monad Mainnet, chain ID `143`.
+3. Read real MON and USDC balances and value them using Kuru's live MON/USDC order book.
+4. Choose a preset or custom target allocation and advisory review limits.
+5. Receive a deterministic `WAIT`, `BLOCK`, or `REVIEW` decision with an ordinary-language explanation.
+6. For an eligible adjustment, inspect the proposed amount, venue minimum, expected output, price impact, slippage floor, gas ceiling, contract identity, and failure conditions.
+7. Run the exact protected Kuru simulation. Activity handling distinguishes prepared, rejected, broadcast, confirmed, reverted, unresolved, and reload-reconciled states without presenting a simulation as a trade.
+
+The differentiation is the recurring target-and-drift workflow: Kuru is the execution venue, while MonMix turns portfolio intent into a bounded, explainable action rather than acting as a generic swap form.
+
+## What is live
+
+- Public application at [monmix.vercel.app](https://monmix.vercel.app).
+- Monad Mainnet wallet connection with explicit multi-provider selection, account verification, network switching, disconnect, and account-change invalidation.
+- Real native MON and USDC balance reads.
+- Live Kuru MON/USDC spread and packed order-book depth with freshness and precision checks.
+- Portfolio presets, custom allocation targets, visual drift, and browser-local preferences.
+- Integer-only policy evaluation producing `WAIT`, `BLOCK`, or `REVIEW`.
+- Protected native MON sell and USDC-to-MON buy preparation, including FOK, `minAmountOut`, gas, balances, market limits, proxy implementation, and bytecode-hash verification.
+- Exact-amount USDC allowance preparation and separately confirmed residual-allowance recovery design.
+- Browser transaction journal, duplicate-action prevention, receipt reconciliation, direction-aware Kuru `Trade` decoding, and post-receipt allocation evidence.
+- Responsive desktop/mobile routes, automated accessibility coverage, honest empty states, activity, proof, and product documentation.
+
+Public mainnet execution is **disabled**. No completed onchain trade or verified fill receipt exists. A protected simulation is read-only and does not prove execution or guarantee its estimated output.
+
+## Monad and Kuru integration
+
+- Network: Monad Mainnet, chain ID `143`
+- Public RPC default: `https://rpc.monad.xyz`
+- Kuru MON/USDC order book: `0x065C9d28E428A0db40191a54d33d5b7c71a9C394`
+- Verified implementation: `0x5e3446c600524Be453bbCEFD46a9E4C9bE8899a0`
+- USDC: `0x754704Bc059F8C67012fEd69BC8A327a5aafb603`, 6 decimals
+- MON: native asset, 18 decimals
+- Packed price precision: `1e8`; packed size precision: `1e10`
+- `bestBidAsk()` scale: `1e18`, independently cross-checked against packed depth
+- Declared venue minimum: `200 MON`
+
+MonMix uses a minimal independently declared ABI matching the verified deployed market. It does not depend on the unlicensed Kuru SDK. Market reads fail closed on stale or empty depth, unexpected token metadata, precision mismatches, proxy upgrades, implementation bytecode changes, or factor-of-ten BBO normalization errors.
+
+Owner-attended acceptance used a funded MetaMask wallet holding approximately 219 MON and reached protected sell simulations on Monad Mainnet, including an exact 200 MON preparation. Those quotes were temporary observations and are never reused as live data. No wallet confirmation, transaction broadcast, or fill was completed.
+
+## Evidence and verification
+
+The verified release gate currently covers:
+
+- 73 deterministic, adapter, wallet, journal, financial-boundary, and release-configuration tests;
+- 44 Playwright browser and automated WCAG A/AA checks across desktop, tablet, 390px, and 375px layouts;
+- TypeScript, ESLint, production dependency audit, and guarded Next.js release build;
+- live read-only Monad/Kuru checks for chain identity, proxy implementation and code hash, token metadata, market precision, BBO/depth agreement, 200 MON minimum, protected sell simulation, buy preparation, allowance, and gas estimation;
+- GitHub Actions on Node 22 and pnpm 10.34.5.
+
+Run the complete local gate:
 
 ```bash
-pnpm install
+pnpm install --frozen-lockfile
+NEXT_PUBLIC_ENABLE_MAINNET_EXECUTION=false pnpm verify
+pnpm test:live
+```
+
+`pnpm test:live` performs public `eth_call` and block reads only. It never asks for a key or sends a transaction. The guarded release build refuses execution through either the process environment or any Next.js production environment file.
+
+## Architecture
+
+```text
+apps/web/                 Next.js App Router product and wallet UX
+packages/domain/          Deterministic allocation policy and bigint unit math
+packages/kuru-adapter/    Minimal ABI, market decoder, verification and preflights
+docs/                     Threat model, evidence, runbooks and product documentation
+```
+
+The browser owns presentation, injected-wallet consent, local preferences, and the durable local journal. The domain package is authoritative for recommendations. The Kuru adapter independently verifies chain and contract state, normalizes units with bigint math, and simulates protected calls. There is no backend signer, custody service, autonomous agent, private-key handling, or custom deployed contract.
+
+## Run locally in read-only mode
+
+Requirements: Node.js 22.x (the repository pins 22.16.0) and pnpm 10.34.5.
+
+```bash
+pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Open `http://localhost:3000`. The public Monad RPC is the default. To use another read-only endpoint:
+Open `http://localhost:3000`. The default public Monad RPC is sufficient for read-only use. An alternate endpoint can be configured from `.env.example`; never place wallet keys or seed phrases in an environment file.
 
-```bash
-cp .env.example .env.local
-```
+## Important limitations
 
-## Verify
+- Public Production and Preview builds keep mainnet execution disabled.
+- Portfolio targets, drift thresholds, caps, and daily budgets are browser-local advisory preferences. They are not independently enforced onchain and do not run while the browser is closed.
+- A funded wallet with a legitimate eligible strategy decision is required to reach the complete Kuru preflight. Adjustments below the declared 200 MON floor are blocked.
+- Simulations are not transactions, receipts, fills, performance evidence, or guaranteed output.
+- No completed onchain trade, verified fill receipt, customer activity, retention, trading volume, or prize result is claimed.
+- Kuru's direct buy and sell calls have no onchain deadline. The browser expires reviews and revalidates before a future wallet request, but a delayed request already open in a wallet must be rejected and prepared again.
+- A future USDC buy would require a separate exact-amount approval and then a fresh trade confirmation. Unlimited approvals are not requested.
+- Browser-local activity is not permanent global account history.
+- Continuous closed-browser monitoring and autonomous execution are not implemented.
 
-```bash
-pnpm test
-pnpm test:live
-pnpm typecheck
-pnpm lint
-pnpm build:release
-pnpm test:e2e
-```
+See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for live-read evidence, [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) for security boundaries, [docs/JUDGE-QUICKSTART.md](docs/JUDGE-QUICKSTART.md) for the judge path, and [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) for desktop/mobile captures.
 
-`pnpm verify` runs the production dependency audit, deterministic tests, typecheck, lint, guarded release build, Playwright responsive checks and automated accessibility checks. The release build refuses execution through the process environment or any Next.js production env file (`.env.production.local`, `.env.local`, `.env.production`, or `.env`). `pnpm test:live` performs public `eth_call` and block reads only; it never asks for a key or sends a transaction.
+## Provenance, license, and AI disclosure
 
-The separately controlled, loopback-only owner session is documented in [docs/PHASE-5E-LOCAL-EXECUTION.md](docs/PHASE-5E-LOCAL-EXECUTION.md). Its launcher requires an exact clean commit and explicit acknowledgement, creates no environment file, refuses CI/Vercel, and must not be run without separate authorization of the exact live trade.
+MonMix is MIT licensed. The product code and visual design are original to this project. Shijima informed portfolio-control and execution-recovery boundaries; Masayume informed market-focused product composition. Their interfaces, branding, assets, typography, copy, and application source were not copied. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [docs/PROVENANCE.md](docs/PROVENANCE.md) for pinned references, licenses, and attribution.
 
-## Verified deployment
-
-- Network: Monad mainnet, chain ID `143`
-- Public RPC default: `https://rpc.monad.xyz`
-- Kuru MON/USDC order book: `0x065C9d28E428A0db40191a54d33d5b7c71a9C394`
-- USDC: `0x754704Bc059F8C67012fEd69BC8A327a5aafb603`, 6 decimals
-- MON: native asset represented by the zero address, 18 decimals
-- Packed price precision: `1e8`; packed size precision: `1e10`
-- `bestBidAsk()` return scale: `1e18`, cross-checked against packed depth
-
-The application never embeds a previously observed price as live data. A mismatch between BBO and packed-depth normalization blocks the market read.
-
-## Workspace
-
-```text
-apps/web/                 Next.js App Router product
-packages/domain/          Original deterministic policy and unit math
-packages/kuru-adapter/    Minimal ABIs, packed L2 decoder, review and direct-order preflights
-docs/                     Product, threat, integration, test and evidence documents
-```
-
-The original Phase 0 engine and its 11 tests were committed unchanged at `18a37432ffa3b3f985133414ae5af15a104e2f82` before the workspace migration. They now live in `packages/domain`; two unit-math tests extend the preserved suite.
-
-## Provenance and licenses
-
-This repository is MIT licensed. The product code and visual design are original to this project. Shijima informed control boundaries and Masayume informed market-focused UX composition; neither interface, branding, assets, typography, copy, or application source was copied. Kuru SDKs are not runtime dependencies. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [docs/PROVENANCE.md](docs/PROVENANCE.md).
-
-OpenAI Codex was used for repository research, architecture, implementation, tests, documentation, and verification. AI output was reviewed against source code and live read-only Monad RPC evidence. Project maintainers remain responsible for the shipped code and claims.
-
-## Current limits
-
-- Mainnet execution is off unless an owner-reviewed build explicitly sets `NEXT_PUBLIC_ENABLE_MAINNET_EXECUTION=true`.
-- The packed L2 interface reflects the verified deployed legacy market shape; the newer Kuru TS SDK uses a different ABI generation and is currently `UNLICENSED`.
-- Kuru's direct buy and sell calls have no onchain deadline. The app expires the browser review after 20 seconds, recreates the preparation before opening the wallet, and refuses a fresh result whose output floor or gas ceiling worsened. Once the request is open in the wallet, the browser timer is not enforceable by the contract; reject a delayed request and prepare again.
-- Strategy preferences and the daily budget are local advisory data, not contract-enforced restrictions.
-- A buy needs two explicit wallet confirmations: an exact-amount USDC approval and, after a fresh preparation, the Kuru order. Neither is enabled in the default build and neither has funded-mainnet receipt evidence yet.
-- An abandoned or failed buy can leave exact residual allowance. Activity reads the live allowance and can prepare `approve(Kuru market, 0)` as a distinct, execution-gated action; it never submits revocation silently.
-- Automatic monitoring while the browser is closed is a documented feasibility design only; automation and independently enforced caps remain unavailable.
-
-See [docs/INTEGRATIONS.md](docs/INTEGRATIONS.md) for raw read evidence, [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) for the release safety boundary, and [docs/JUDGE-QUICKSTART.md](docs/JUDGE-QUICKSTART.md) for the shortest review path.
-
-The approved public repository is [Alike001/monmix](https://github.com/Alike001/monmix). Vercel deployment remains owner-controlled and has not been performed. See [docs/PUBLISHING-AND-DEPLOYMENT.md](docs/PUBLISHING-AND-DEPLOYMENT.md) for the exact project settings and remaining approval gate.
+OpenAI Codex was used for repository research, architecture, implementation, tests, documentation, and verification. AI output was reviewed against source code, deterministic tests, and live read-only Monad RPC evidence. Project maintainers remain responsible for the shipped code and claims.
