@@ -52,7 +52,9 @@ pnpm build:release
 pnpm test:e2e
 ```
 
-`pnpm verify` runs the production dependency audit, deterministic tests, typecheck, lint, guarded release build, Playwright responsive checks and automated accessibility checks. The release build refuses `NEXT_PUBLIC_ENABLE_MAINNET_EXECUTION=true`. `pnpm test:live` performs public `eth_call` and block reads only; it never asks for a key or sends a transaction.
+`pnpm verify` runs the production dependency audit, deterministic tests, typecheck, lint, guarded release build, Playwright responsive checks and automated accessibility checks. The release build refuses execution through the process environment or any Next.js production env file (`.env.production.local`, `.env.local`, `.env.production`, or `.env`). `pnpm test:live` performs public `eth_call` and block reads only; it never asks for a key or sends a transaction.
+
+The separately controlled, loopback-only owner session is documented in [docs/PHASE-5E-LOCAL-EXECUTION.md](docs/PHASE-5E-LOCAL-EXECUTION.md). Its launcher requires an exact clean commit and explicit acknowledgement, creates no environment file, refuses CI/Vercel, and must not be run without separate authorization of the exact live trade.
 
 ## Verified deployment
 

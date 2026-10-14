@@ -9,6 +9,7 @@
     "dev": "pnpm --filter @monad-strategy/web dev",
     "build": "pnpm --filter @monad-strategy/web build",
     "build:release": "node scripts/assert-execution-disabled.mjs && pnpm build",
+    "local:execution": "node scripts/start-local-execution.mjs",
     "test": "pnpm -r test && node --experimental-strip-types --test tests/release/*.test.ts",
     "test:live": "pnpm --filter @monad-strategy/kuru-adapter test:live",
     "test:e2e": "playwright test",

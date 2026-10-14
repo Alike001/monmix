@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
+import { assertReleaseExecutionDisabled, NEXT_PRODUCTION_ENV_FILES } from '../../scripts/assert-execution-disabled.mjs';
 
 function json(path: string): Record<string, unknown> {
   return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
@@ -60,11 +63,60 @@ test('guarded release build refuses an execution-enabled bundle', () => {
   assert.match(accepted.stdout, /explicitly false/);
 });
 
+test('guarded release build inspects every Next.js production environment file', () => {
+  for (const filename of NEXT_PRODUCTION_ENV_FILES) {
+    const temporaryRoot = mkdtempSync(join(tmpdir(), 'monmix-release-guard-'));
+    try {
+      const appDirectory = join(temporaryRoot, 'apps', 'web');
+      mkdirSync(appDirectory, { recursive: true });
+      writeFileSync(join(appDirectory, filename), 'NEXT_PUBLIC_ENABLE_MAINNET_EXECUTION=true\n');
+      assert.throws(
+        () => assertReleaseExecutionDisabled({ environment: {}, appDirectory }),
+        new RegExp(`${filename.replaceAll('.', '\\.')}.+unsafely`),
+      );
+    } finally {
+      rmSync(temporaryRoot, { recursive: true, force: true });
+    }
+  }
+});
+
+test('release guard accepts only a literal disabled value in Next.js environment files', () => {
+  const temporaryRoot = mkdtempSync(join(tmpdir(), 'monmix-release-guard-'));
+  try {
+    const appDirectory = join(temporaryRoot, 'apps', 'web');
+    mkdirSync(appDirectory, { recursive: true });
+    writeFileSync(join(appDirectory, '.env.production.local'), 'NEXT_PUBLIC_ENABLE_MAINNET_EXECUTION=false\n');
+    writeFileSync(join(appDirectory, '.env.local'), "NEXT_PUBLIC_ENABLE_MAINNET_EXECUTION='false' # local safety\n");
+    assert.equal(assertReleaseExecutionDisabled({ environment: {}, appDirectory }), 'unset (disabled by code)');
+
+    writeFileSync(join(appDirectory, '.env'), 'NEXT_PUBLIC_ENABLE_MAINNET_EXECUTION=$ENABLE_EXECUTION\n');
+    assert.throws(() => assertReleaseExecutionDisabled({ environment: {}, appDirectory }), /defines NEXT_PUBLIC_ENABLE_MAINNET_EXECUTION unsafely/);
+  } finally {
+    rmSync(temporaryRoot, { recursive: true, force: true });
+  }
+});
+
+test('local execution launcher is loopback-only and refuses hosted environments', () => {
+  const source = readFileSync('scripts/start-local-execution.mjs', 'utf8');
+  assert.match(source, /127\.0\.0\.1/);
+  assert.match(source, /NEXT_PUBLIC_ENABLE_MAINNET_EXECUTION: 'true'/);
+  assert.doesNotMatch(source, /writeFile|appendFile|\.env\.local/);
+
+  const refused = spawnSync(process.execPath, [
+    'scripts/start-local-execution.mjs',
+    '--acknowledge=I_APPROVE_LOCAL_MAINNET_EXECUTION',
+    '--commit', '0000000000000000000000000000000000000000',
+    '--check',
+  ], { env: { ...process.env, CI: 'true' }, encoding: 'utf8' });
+  assert.notEqual(refused.status, 0);
+  assert.match(refused.stderr, /cannot run in CI or Vercel/);
+});
+
 test('tracked release excludes local environments, Vercel metadata and key-based signers', () => {
   const listed = spawnSync('git', ['ls-files'], { encoding: 'utf8' });
   assert.equal(listed.status, 0);
   const files = listed.stdout.trim().split('\n');
-  assert.equal(files.some((file) => file === '.env' || file === '.env.local' || file.startsWith('.vercel/')), false);
+  assert.equal(files.some((file) => (/(^|\/)\.env(?:\..+)?$/.test(file) && file !== '.env.example') || file.startsWith('.vercel/')), false);
 
   const sourceFiles = files.filter((file) =>
     (file.startsWith('apps/') || file.startsWith('packages/')) &&
