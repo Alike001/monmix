@@ -23,6 +23,7 @@ import {
 } from '@/lib/transaction-journal';
 import { assertWalletExecutionContext, readProviderWalletState } from '@/lib/wallet-state';
 import { assertSellRevalidation } from '@/lib/execution-review';
+import { resolveBoundedSellAmount, type SellAmountMode } from '@/lib/execution-amount';
 import { useNowSeconds } from '@/lib/use-now-seconds';
 
 type PreflightState =
@@ -33,13 +34,22 @@ type PreflightState =
 
 const EXECUTION_ENABLED = process.env.NEXT_PUBLIC_ENABLE_MAINNET_EXECUTION === 'true';
 
-export function NativeSellPreflight({ account, baseAmountAtoms }: { account: Address; baseAmountAtoms: bigint }) {
+export function NativeSellPreflight({ account, recommendedBaseAmountAtoms, declaredMinimumBaseAmountAtoms }: { account: Address; recommendedBaseAmountAtoms: bigint; declaredMinimumBaseAmountAtoms: bigint }) {
   const connection = useConnection();
   const { writeContractAsync } = useWriteContract();
   const [state, setState] = useState<PreflightState>({ kind: 'idle' });
   const [executionMessage, setExecutionMessage] = useState('');
+  const [amountMode, setAmountMode] = useState<SellAmountMode>('STRATEGY_RECOMMENDATION');
   const inFlight = useRef(false);
   const nowSeconds = useNowSeconds();
+  const baseAmountAtoms = resolveBoundedSellAmount({ mode: amountMode, recommendedBaseAtoms: recommendedBaseAmountAtoms, declaredMinimumBaseAtoms: declaredMinimumBaseAmountAtoms });
+
+  function selectAmount(mode: SellAmountMode) {
+    if (inFlight.current) return;
+    setAmountMode(mode);
+    setState({ kind: 'idle' });
+    setExecutionMessage('');
+  }
 
   async function requestPreflight(): Promise<NativeSellPreparationDto> {
     const response = await fetch('/api/preflight/sell', {
@@ -170,6 +180,18 @@ export function NativeSellPreflight({ account, baseAmountAtoms }: { account: Add
         <button className="button small" type="button" onClick={simulate} disabled={state.kind === 'loading'}>{state.kind === 'loading' ? 'Simulating…' : 'Run simulation'}</button>
       </div>
       <p className="supporting-copy">Re-reads the proxy, order book, balance and gas; then simulates a 0.50% protected, fill-or-kill native MON sell. Simulation never signs or broadcasts.</p>
+      <fieldset className="execution-amount" disabled={state.kind === 'loading'}>
+        <legend>Choose the amount to simulate</legend>
+        <label>
+          <input type="radio" name="sell-amount" checked={amountMode === 'STRATEGY_RECOMMENDATION'} onChange={() => selectAmount('STRATEGY_RECOMMENDATION')} />
+          <span><strong>Strategy recommendation</strong><small>{formatCompactAtoms(recommendedBaseAmountAtoms, 18, 6)} MON · bounded by your saved advisory limits</small></span>
+        </label>
+        {recommendedBaseAmountAtoms > declaredMinimumBaseAmountAtoms ? <label>
+          <input type="radio" name="sell-amount" checked={amountMode === 'VENUE_MINIMUM'} onChange={() => selectAmount('VENUE_MINIMUM')} />
+          <span><strong>Exact venue minimum</strong><small>{formatCompactAtoms(declaredMinimumBaseAmountAtoms, 18, 6)} MON · never larger than the strategy recommendation</small></span>
+        </label> : null}
+        <p>Selected: <strong>{formatCompactAtoms(baseAmountAtoms, 18, 6)} MON</strong>. Changing this amount clears the visible simulation and requires a new live quote.</p>
+      </fieldset>
       {state.kind === 'error' ? <div className="notice danger"><strong>{state.code}</strong><br />{state.message}</div> : null}
       {state.kind === 'ready' ? <PreparedReview value={state.preparation} nowSeconds={nowSeconds} onExecute={execute} executionMessage={executionMessage} /> : null}
     </section>

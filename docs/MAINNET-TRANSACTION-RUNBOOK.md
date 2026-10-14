@@ -21,7 +21,7 @@ Record before the session:
 
 ```text
 Application commit: ________________________________
-Deployment URL: ____________________________________
+Local origin: http://127.0.0.1:______________________
 Owner account: 0x___________________________________
 UTC time: __________________________________________
 Execution flag initially false: yes / no
@@ -38,7 +38,7 @@ USDC: 0x754704Bc059F8C67012fEd69BC8A327a5aafb603, 6 decimals
 MON: native, 18 decimals
 ```
 
-Run `pnpm test:live` immediately before deployment approval. Stop on any chain, proxy, implementation, code-hash, token, decimal, precision, stale-book or empty-book mismatch.
+Run `pnpm test:live` immediately before session approval. Stop on any chain, proxy, implementation, code-hash, token, decimal, precision, stale-book or empty-book mismatch. Use the clean-commit, loopback-only procedure in [PHASE-5E-LOCAL-EXECUTION.md](PHASE-5E-LOCAL-EXECUTION.md); never enable the public Vercel build.
 
 ## Exact asset and order requirements
 
@@ -92,6 +92,8 @@ placeAndExecuteMarketSell(
 )
 ```
 
+Expected selector: `0x532c46db`.
+
 Verify the wallet request destination is exactly the Kuru proxy and native value is exactly 200 MON. Reject any approval request, different destination, different value, margin flag, non-FOK flag, changed size or lower output floor.
 
 The contract has **no onchain deadline**. The browser's 20-second expiry only controls whether the app opens a new wallet request. Once the request is in the wallet, the chain cannot enforce that browser timer. If confirmation is not immediate, the wallet remains open unusually long, the displayed values differ, the network/account changes, or the user is distracted, reject/close the request and prepare again. Never rely on the old wallet request after returning later.
@@ -99,15 +101,15 @@ The contract has **no onchain deadline**. The browser's 20-second expiry only co
 ## Confirmation checkpoints
 
 1. Owner reviews this runbook and explicitly authorizes the recorded commit, account, 200 MON direction and maximum gas cost.
-2. Deploy with execution still false and complete real-extension read-only acceptance.
+2. Confirm Vercel Production and Preview remain execution-disabled and complete real-extension read-only acceptance there.
 3. Re-run deterministic, build, browser and live checks.
-4. Owner explicitly authorizes a time-bounded build/session with `NEXT_PUBLIC_ENABLE_MAINNET_EXECUTION=true`.
+4. Owner explicitly authorizes the exact clean commit and a time-bounded, loopback-only local session. Use the guarded local launcher; do not change a tracked environment file or Vercel setting.
 5. Connect the recorded account on chain 143.
 6. Confirm the live strategy still recommends a MON sell; do not manipulate inputs solely to force it.
 7. Run a new exact preparation. The final revalidation must preserve or improve the reviewed output floor and gas ceiling.
 8. Open the wallet and compare destination, value and function data.
 9. Owner alone confirms or rejects. No operator enters credentials or clicks for them.
-10. Immediately restore the deployment configuration to execution false after the wallet returns a hash or rejection.
+10. Stop the local server immediately after the wallet returns a hash or rejection. Public deployment configuration remains false throughout.
 
 ## Outcome handling
 
@@ -137,8 +139,8 @@ The chosen sell creates no USDC allowance. Still use Activity's live allowance c
 
 After evidence capture:
 
-1. Set `NEXT_PUBLIC_ENABLE_MAINNET_EXECUTION=false` and rebuild/redeploy.
-2. Verify every execution control says “Mainnet execution disabled.”
+1. Stop the loopback-only local server. Do not start it again under the same authorization.
+2. Verify the public application still says “Mainnet execution disabled.”
 3. Reconcile the transaction journal once more.
 4. Archive the evidence bundle and record any residual allowance.
 5. Do not run another transaction under this authorization.

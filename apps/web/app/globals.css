@@ -295,6 +295,16 @@ button { cursor: pointer; }
 .preflight-head { display: flex; justify-content: space-between; gap: 24px; align-items: start; }
 .preflight .supporting-copy { max-width: 760px; color: #b3bbb0; line-height: 1.6; }
 .preflight .prepared-review { margin-top: 24px; padding: clamp(18px, 3vw, 28px); border: 1px solid #394139; border-radius: 14px; background: #202620; }
+.execution-amount { display: grid; gap: 10px; margin: 22px 0 0; padding: 16px; border: 1px solid #394139; border-radius: 14px; background: #202620; }
+.execution-amount legend { padding: 0 7px; color: var(--acid); font-family: ui-monospace, monospace; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; }
+.execution-amount label { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 11px; align-items: start; padding: 12px; border: 1px solid #394139; border-radius: 11px; background: #171c17; cursor: pointer; }
+.execution-amount label:has(input:checked) { border-color: var(--acid); }
+.execution-amount input { margin-top: 3px; accent-color: var(--acid); }
+.execution-amount label span { display: grid; gap: 4px; }
+.execution-amount label strong { color: #f7f5ed; font-size: 13px; }
+.execution-amount label small, .execution-amount p { color: #aab2a7; font-size: 11px; line-height: 1.5; }
+.execution-amount p { margin: 2px 0 0; }
+.execution-amount p strong { color: #f7f5ed; }
 .preflight .review-metric { border-color: #394139; }
 .preflight .review-metric span { color: #aab2a7; }
 .preflight details { margin: 22px 0; }

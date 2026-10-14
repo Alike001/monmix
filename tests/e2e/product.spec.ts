@@ -307,6 +307,7 @@ test('funded sell simulation stays clear of the sticky decision at every support
   const market = '0x065C9d28E428A0db40191a54d33d5b7c71a9C394';
   const implementation = '0x5e3446c600524Be453bbCEFD46a9E4C9bE8899a0';
   const usdc = '0x754704Bc059F8C67012fEd69BC8A327a5aafb603';
+  const requestedSellAmounts: string[] = [];
   await page.route('**/api/market', (route) => route.fulfill({ json: { ok: true, snapshot: {
     chainId: 143, marketAddress: market,
     params: { pricePrecision: '100000000', sizePrecision: '10000000000', baseAssetAddress: '0x0000000000000000000000000000000000000000', baseAssetDecimals: '18', quoteAssetAddress: usdc, quoteAssetDecimals: '6', tickSize: '100', minSize: '2000000000000', maxSize: '2000000000000000000', takerFeeBps: '0', makerFeeBps: '0' },
@@ -317,6 +318,7 @@ test('funded sell simulation stays clear of the sticky decision at every support
   await page.route('**/api/preflight/sell', async (route) => {
     const request = route.request().postDataJSON() as { baseAmountAtoms: string };
     const baseAmountAtoms = BigInt(request.baseAmountAtoms);
+    requestedSellAmounts.push(request.baseAmountAtoms);
     const sizeRaw = baseAmountAtoms / 100000000n;
     await route.fulfill({ json: { ok: true, preparation: {
       chainId: 143, account, marketAddress: market, implementationAddress: implementation,
@@ -358,6 +360,14 @@ test('funded sell simulation stays clear of the sticky decision at every support
   await expect(proposedAmount).toBeVisible();
   expect(Number.parseFloat((await proposedAmount.textContent()) ?? '0')).toBeGreaterThanOrEqual(200);
 
+  const strategyAmount = page.getByLabel(/Strategy recommendation/);
+  const venueMinimum = page.getByLabel(/Exact venue minimum/);
+  await expect(strategyAmount).toBeChecked();
+  await expect(venueMinimum).toBeVisible();
+  await venueMinimum.check();
+  await expect(venueMinimum).toBeChecked();
+  await expect(page.getByText('Selected:').locator('..')).toContainText('200.000000 MON');
+
   const preflight = page.locator('.preflight');
   const decision = page.locator('.decision');
   const simulation = page.getByRole('button', { name: 'Run simulation' });
@@ -367,6 +377,8 @@ test('funded sell simulation stays clear of the sticky decision at every support
   await simulation.click();
   const prepared = page.locator('.prepared-review');
   await expect(prepared.getByText('You would sell')).toBeVisible({ timeout: 20_000 });
+  await expect(prepared.getByText('You would sell').locator('..')).toContainText('200.000000 MON');
+  expect(requestedSellAmounts).toEqual(['200000000000000000000']);
   await expect(prepared.getByRole('button', { name: 'Mainnet execution disabled' })).toBeDisabled();
 
   const overlaps = (a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) =>

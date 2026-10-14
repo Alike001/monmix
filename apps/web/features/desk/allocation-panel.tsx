@@ -123,7 +123,7 @@ export function AllocationPanel() {
       </section>
     </div><DecisionCard result={result} target={target} minimumTrade={minimumTrade} /></div>
     {result.kind === 'decision' && result.decision.status === 'REVIEW' && result.review?.status === 'REVIEW' && wallet.address ? result.decision.side === 'SELL_BASE'
-      ? <NativeSellPreflight key={`sell:${wallet.connectorUid}:${wallet.address}:${result.review.estimatedBaseAtoms}`} account={wallet.address} baseAmountAtoms={result.review.estimatedBaseAtoms} />
+      ? <NativeSellPreflight key={`sell:${wallet.connectorUid}:${wallet.address}:${result.review.estimatedBaseAtoms}:${result.minimumBaseAtoms}`} account={wallet.address} recommendedBaseAmountAtoms={result.review.estimatedBaseAtoms} declaredMinimumBaseAmountAtoms={result.minimumBaseAtoms} />
       : <NativeBuyPreflight key={`buy:${wallet.connectorUid}:${wallet.address}:${result.review.estimatedQuoteAtoms}`} account={wallet.address} quoteAmountAtoms={result.review.estimatedQuoteAtoms} /> : null}
   </div>;
 }
